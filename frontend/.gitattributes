@@ -1,0 +1,24 @@
+* text=auto eol=lf
+
+# Source archives omit internal operations and personal conversation records.
+# export-ignore affects archives, NOT git push or existing Git history.
+logs export-ignore
+logs/** export-ignore
+docs export-ignore
+docs/** export-ignore
+AGENTS.md export-ignore
+CLAUDE.md export-ignore
+scripts/collaboration-live.mjs export-ignore
+e2e/live-*.spec.ts export-ignore
+.env* export-ignore
+.env.example -export-ignore
+.env.tc -export-ignore
+ai export-ignore
+ai/** export-ignore
+MEMORY.md export-ignore
+.run export-ignore
+.run/** export-ignore
+.codex export-ignore
+.codex/** export-ignore
+.claude export-ignore
+.claude/** export-ignore

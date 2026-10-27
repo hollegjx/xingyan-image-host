@@ -1,0 +1,85 @@
+/* Shared surfaces; page permission and business logic remain local to each page. */
+.workspace-content
+  :is(
+    #myPicturePage,
+    #mySpacePage,
+    #spaceDetailPage,
+    #spaceAnalyzePage,
+    #pictureManagePage,
+    #userManagePage,
+    .team-page,
+    .members-page,
+    .space-manage-page
+  ) {
+  padding: 8px 0 32px;
+  width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
+}
+.workspace-content
+  :is(#myPicturePage, #mySpacePage, #spaceDetailPage, .team-page, .members-page)
+  > p {
+  color: var(--muted);
+  font-size: 13px;
+  margin-bottom: 26px;
+}
+.workspace-content .page-header {
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.workspace-content .page-header p {
+  color: var(--muted);
+  margin-bottom: 0;
+}
+.workspace-content #addPicturePage {
+  max-width: 880px;
+  padding: 36px;
+  margin: 0 auto;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+}
+.workspace-content #addPicturePage .ant-alert {
+  margin-bottom: 24px;
+}
+.workspace-content #pictureDetailPage {
+  padding: 0;
+}
+.workspace-content #pictureDetailPage .ant-col {
+  margin-bottom: 24px;
+}
+.workspace-content .gallery {
+  gap: 20px;
+}
+.workspace-content .teams {
+  gap: 22px;
+  margin-top: 30px;
+}
+.workspace-content .teams .ant-card-head {
+  min-height: 76px;
+  font-size: 17px;
+}
+.workspace-content .teams .ant-card-body > p {
+  color: var(--muted);
+  font-size: 12px;
+}
+.workspace-content .space-card {
+  margin: 24px 0;
+}
+.workspace-content .ant-table-thead > tr > th {
+  background: var(--surface-soft);
+  font-size: 12px;
+  color: var(--muted);
+}
+.workspace-content .ant-table {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+@media (max-width: 640px) {
+  .workspace-content #addPicturePage {
+    padding: 20px 16px;
+  }
+  .workspace-content h2 {
+    font-size: 23px;
+  }
+}

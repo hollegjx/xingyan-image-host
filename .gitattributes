@@ -1,0 +1,11 @@
+* text=auto eol=lf
+
+# Public documentation is included; machine-only records are not.
+logs/** export-ignore
+ai/** export-ignore
+AGENTS.md export-ignore
+CLAUDE.md export-ignore
+MEMORY.md export-ignore
+.run/** export-ignore
+.codex/** export-ignore
+.claude/** export-ignore

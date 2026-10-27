@@ -1,0 +1,26 @@
+# Spring Boot 2.7 uses spring.redis, not spring.data.redis.
+spring:
+  redis:
+    host: ${REDIS_HOST:localhost}
+    port: ${REDIS_PORT:6379}
+    username: ${REDIS_USERNAME:}
+    password: ${REDIS_PASSWORD:}
+    database: ${REDIS_DATABASE:0}
+    timeout: 3s
+    connect-timeout: 3s
+  session:
+    store-type: redis
+    timeout: ${SESSION_TIMEOUT:30m}
+    redis:
+      namespace: ${SESSION_REDIS_NAMESPACE:tuku1:session}
+      flush-mode: on_save
+      save-mode: on_set_attribute
+
+server:
+  servlet:
+    session:
+      cookie:
+        name: JSESSIONID
+        path: /api
+        http-only: true
+        same-site: lax

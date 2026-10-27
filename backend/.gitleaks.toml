@@ -1,0 +1,6 @@
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Only generated Maven/build output; never hide source, configuration, or Git history"
+paths = ['''(?:^|/)(?:target|build)/''']

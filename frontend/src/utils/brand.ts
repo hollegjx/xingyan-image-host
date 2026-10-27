@@ -1,0 +1,23 @@
+export const brandName = '星檐图床'
+export const pageTitles: Record<string, string> = {
+  home: '探索图库',
+  login: '登录',
+  register: '创建账户',
+  'add-picture': '创建图片',
+  'picture-detail': '图片详情',
+  'my-pictures': '我的投稿',
+  'user-profile': '个人资料',
+  'user-settings': '偏好与设置',
+  'my-space': '我的空间',
+  'team-spaces': '团队空间',
+  'space-detail': '空间图库',
+  'space-members': '成员管理',
+  'space-analyze': '图库分析',
+  'admin-space-analyze': '图库分析',
+  'admin-pictures': '图片管理',
+  'admin-users': '用户管理',
+  'admin-spaces': '空间管理',
+  'search-picture': '以图搜图',
+  'collaborate-picture': '协同编辑',
+  'not-found': '页面未找到',
+}

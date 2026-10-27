@@ -1,0 +1,91 @@
+server:
+  port: 8123
+  servlet:
+    context-path: /api
+
+spring:
+  config:
+    import: classpath:application-session.yml,classpath:application-picture-cache.yml
+  application:
+    name: tuku1
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/tuku
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: false
+    log-impl: org.apache.ibatis.logging.commons.JakartaCommonsLoggingImpl
+  global-config:
+    db-config:
+      logic-delete-field: isDelete
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+knife4j:
+  enable: true
+  openapi:
+    title: 接口文档
+    version: v1.0
+    group:
+      default:
+        api-rule: package
+        api-rule-resources:
+          - learn.gjx.tuku1.controller
+
+cos:
+  client:
+    secretId: ${COS_SECRET_ID:}
+    secretKey: ${COS_SECRET_KEY:}
+    region: ${COS_REGION:}
+    bucket: ${COS_BUCKET:}
+
+picture:
+  collaboration:
+    # Set the exact frontend origins in the deployment environment; never use a wildcard.
+    allowed-origins: ${PICTURE_COLLABORATION_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:4173}
+  ai-editing:
+    enabled: ${PICTURE_AI_EDITING_ENABLED:false}
+    private-enabled: false
+    api-key: ${DASHSCOPE_API_KEY:}
+    # Beijing workspace from the console; never accepts an arbitrary API URL.
+    workspace-id: ${DASHSCOPE_WORKSPACE_ID:}
+    # Explicit allowlist and rolling-24-hour limits; zero means no paid submissions.
+    allowed-user-ids: []
+    daily-user-limit: 10
+    daily-global-limit: 50
+  image-search:
+    # Unofficial Baidu web endpoint; public approved images only, with per-request consent.
+    # Leave disabled until the real provider contract has passed acceptance checks.
+    enabled: ${PICTURE_IMAGE_SEARCH_ENABLED:false}
+  private-storage:
+    # Keep disabled until a separate bucket has passed anonymous-access checks.
+    # It must be in COS_REGION, private-read/write, with no public policy/CDN/object ACL.
+    # The bucket must NOT equal COS_BUCKET. Apply alter_private_picture_write.sql before enabling.
+    # Enables authorized private reads/writes and persistent cleanup (not batch import/processing).
+    enabled: ${PICTURE_PRIVATE_STORAGE_ENABLED:false}
+    bucket: ${PICTURE_PRIVATE_STORAGE_BUCKET:}
+    cleanup-delay-ms: 60000
+  derivative:
+    enabled: true
+    # 主展示 WebP 质量；只有比原图更小时才会采用
+    display-quality: 85
+    # 列表缩略图最大边界与质量；不会放大原图
+    thumbnail-quality: 80
+    thumbnail-max-width: 512
+    thumbnail-max-height: 512
+    # 小于等于 20 KB 时不生成缩略图
+    thumbnail-min-bytes: 20480
+  file-cleanup:
+    retry-delay-ms: 60000
+  draft:
+    cleanup-enabled: true
+    expire-hours: 24
+    cleanup-delay-ms: 3600000
+    cleanup-batch-size: 100

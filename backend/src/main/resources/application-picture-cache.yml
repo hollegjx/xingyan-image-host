@@ -1,0 +1,14 @@
+picture:
+  public-cache:
+    enabled: ${PICTURE_PUBLIC_CACHE_ENABLED:true}
+    namespace: ${PICTURE_PUBLIC_CACHE_NAMESPACE:tuku1:picture:public}
+    ttl-seconds: 300
+    jitter-seconds: 60
+    empty-ttl-seconds: 30
+    failure-cooldown-seconds: 5
+    max-cached-page: 50
+    local-enabled: ${PICTURE_LOCAL_CACHE_ENABLED:true}
+    local-max-size: 1000
+    local-ttl-seconds: 30
+    local-empty-ttl-seconds: 10
+    local-max-entry-chars: 32768

@@ -1,0 +1,89 @@
+/* Shared, finite interaction feedback. No movement on touch or reduced-motion devices. */
+html[data-reduce-motion='true'] *,
+html[data-reduce-motion='true'] *::before,
+html[data-reduce-motion='true'] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+/* Limit transform overrides to interaction effects; do not disturb modal/tooltip positioning. */
+html[data-reduce-motion='true']
+  :is(
+    .ant-btn,
+    .upload-link,
+    .nav-item,
+    .category-tabs button,
+    .tag-panel button,
+    .view-switch button,
+    .empty-upload,
+    .card-actions > button,
+    .submission-create,
+    .submission-card,
+    .submission-cover img,
+    .profile-shortcuts > a
+  ):hover,
+html[data-reduce-motion='true'] .submission-card-actions > a:hover .anticon:last-child {
+  transform: none !important;
+}
+:root {
+  --motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-duration: 240ms;
+}
+:is(
+    .ant-btn:not(.ant-btn-link):not(.ant-btn-text):not(.ant-input-search-button),
+    .upload-link,
+    .category-tabs button,
+    .tag-panel button,
+    .view-switch button,
+    .empty-upload,
+    .card-actions > button
+  ):not(:disabled):not([aria-disabled='true']):not(.ant-btn-loading) {
+  transition:
+    transform var(--motion-duration) var(--motion-ease),
+    box-shadow var(--motion-duration) var(--motion-ease),
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease;
+}
+.nav-item {
+  transition:
+    transform var(--motion-duration) var(--motion-ease),
+    background-color 180ms,
+    color 180ms;
+}
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  :is(
+      .ant-btn:not(.ant-btn-link):not(.ant-btn-text):not(.ant-input-search-button),
+      .upload-link,
+      .category-tabs button,
+      .tag-panel button,
+      .view-switch button,
+      .empty-upload,
+      .card-actions > button
+    ):not(:disabled):not([aria-disabled='true']):not(.ant-btn-loading):hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 12px #1d1d1f0e;
+  }
+  :is(.upload-link, .ant-btn-primary):not(:disabled):not(.ant-btn-loading):not(
+      .ant-input-search-button
+    ):hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px #1d1d1f20;
+  }
+  :is(
+      .ant-btn:not(.ant-btn-link):not(.ant-btn-text):not(.ant-input-search-button),
+      .upload-link,
+      .category-tabs button,
+      .tag-panel button,
+      .view-switch button,
+      .empty-upload,
+      .card-actions > button
+    ):not(:disabled):not([aria-disabled='true']):not(.ant-btn-loading):active {
+    transform: translateY(0) scale(0.97);
+    box-shadow: 0 1px 3px #1d1d1f0d;
+  }
+  .nav-item:hover {
+    transform: translateX(2px);
+  }
+}

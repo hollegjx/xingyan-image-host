@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="generator.mapper.PictureMapper">
+
+    <resultMap id="BaseResultMap" type="generator.domain.Picture">
+            <id property="id" column="id" />
+            <result property="url" column="url" />
+            <result property="sourceUrl" column="sourceUrl" />
+            <result property="name" column="name" />
+            <result property="introduction" column="introduction" />
+            <result property="category" column="category" />
+            <result property="tags" column="tags" />
+            <result property="picSize" column="picSize" />
+            <result property="picWidth" column="picWidth" />
+            <result property="picHeight" column="picHeight" />
+            <result property="picScale" column="picScale" />
+            <result property="picFormat" column="picFormat" />
+            <result property="picColor" column="picColor" />
+            <result property="userId" column="userId" />
+            <result property="spaceId" column="spaceId" />
+            <result property="createTime" column="createTime" />
+            <result property="editTime" column="editTime" />
+            <result property="updateTime" column="updateTime" />
+            <result property="isDelete" column="isDelete" />
+            <result property="reviewStatus" column="reviewStatus" />
+            <result property="reviewMessage" column="reviewMessage" />
+            <result property="reviewerId" column="reviewerId" />
+            <result property="reviewTime" column="reviewTime" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id,url,sourceUrl,name,introduction,category,tags,
+        picSize,picWidth,picHeight,picScale,picFormat,picColor,
+        userId,spaceId,createTime,editTime,updateTime,isDelete,
+        reviewStatus,reviewMessage,reviewerId,reviewTime
+    </sql>
+</mapper>

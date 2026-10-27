@@ -1,0 +1,17 @@
+# Local development only. Remote Redis must use authentication and private networking.
+services:
+  redis:
+    image: redis:7.4.11
+    ports:
+      - "127.0.0.1:6379:6379"
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - tuku-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  tuku-redis-data:

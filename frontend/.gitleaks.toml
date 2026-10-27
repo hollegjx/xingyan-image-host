@@ -1,0 +1,6 @@
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Only installed dependencies and generated build/test output; never hide source, configuration, or Git history"
+paths = ['''(?:^|/)(?:node_modules|dist|dist-ssr|\.ui-dist|test-results|playwright-report|coverage)/''']
