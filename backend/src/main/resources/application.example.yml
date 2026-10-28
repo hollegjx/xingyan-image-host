@@ -45,6 +45,9 @@ cos:
     secretKey: ${COS_SECRET_KEY:}
     region: ${COS_REGION:}
     bucket: ${COS_BUCKET:}
+    # Opt-in for the public bucket only. Enable COS global acceleration first;
+    # accelerated traffic is billed separately. Stored/display URLs keep COS_REGION.
+    accelerate-enabled: ${COS_ACCELERATE_ENABLED:false}
 
 picture:
   collaboration:
