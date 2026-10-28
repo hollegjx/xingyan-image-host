@@ -370,7 +370,7 @@ class PublicPictureCacheIntegrationTest {
         assertEquals(uploaded.getUrl(), service.listPublicPicturePage(null, null).getRecords().get(0).getUrl());
         assertEquals(1, revision.current());
         verify(app.getBean(PictureFileCleanupManager.class), atLeastOnce())
-                .deleteQuietly("https://example.test/old.jpg", "replace-picture");
+                .enqueueCommitted(Collections.singletonList("https://example.test/old.jpg"));
     }
 
     @Test
@@ -618,6 +618,7 @@ class PublicPictureCacheIntegrationTest {
                 factory.registerSingleton("pictureFileCleanupManager", mock(PictureFileCleanupManager.class));
                 factory.registerSingleton("bingImageSearchManager", mock(BingImageSearchManager.class));
                 factory.registerSingleton("privatePictureWriteManager", mock(learn.gjx.tuku1.manager.space.PrivatePictureWriteManager.class));
+                factory.registerSingleton("aiTaskStore", mock(learn.gjx.tuku1.manager.AiTaskStore.class));
             };
         }
     }

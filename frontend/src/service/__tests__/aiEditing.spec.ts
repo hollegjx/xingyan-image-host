@@ -7,6 +7,7 @@ describe('AI image client boundaries', () => {
     expect(taskPending('RUNNING')).toBe(true)
     expect(taskPending('SUBMITTING')).toBe(true)
     expect(taskPending('QUEUED')).toBe(true)
+    expect(taskPending('APPLYING')).toBe(true)
     for (const state of ['UNKNOWN', 'FAILED', 'APPLIED', 'APPLY_UNKNOWN', undefined]) expect(taskPending(state)).toBe(false)
   })
   it('rejects foreign blob destinations before fetching', async () => {

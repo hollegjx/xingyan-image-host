@@ -23,6 +23,7 @@ export const createAiTask = (data: AiCreate) => request<Response<AiTask>>(`${roo
 export const getAiTask = (taskId: string) => request<Response<AiTask>>(`${root}/get_task`, { params: { taskId }, timeout: 20000 })
 export const latestAiTask = (pictureId: string | number) => request<Response<AiTask>>(`${root}/latest`, { params: { pictureId } })
 export const applyAiTask = (taskId: string) => request<Response<API.PictureVO>>(`${root}/apply`, { method: 'POST', params: { taskId }, timeout: 120000 })
+export const recoverAiTask = (taskId: string) => request<Response<AiTask>>(`${root}/recover`, { method: 'POST', params: { taskId }, timeout: 120000 })
 
 /** Authenticated binary request, accepting only same-origin application routes. Never follows redirects. */
 export async function editingBlob(path: string, signal?: AbortSignal) {
@@ -41,4 +42,4 @@ export async function editingBlob(path: string, signal?: AbortSignal) {
 export function editingSource(id: string | number) {
   return `${import.meta.env.VITE_API_BASE_URL || ''}/api/picture/editing/source?id=${encodeURIComponent(id)}`
 }
-export const taskPending = (status?: string) => !!status && ['QUEUED', 'SUBMITTING', 'PENDING', 'RUNNING', 'SUSPENDED'].includes(status)
+export const taskPending = (status?: string) => !!status && ['QUEUED', 'SUBMITTING', 'PENDING', 'RUNNING', 'SUSPENDED', 'APPLYING'].includes(status)

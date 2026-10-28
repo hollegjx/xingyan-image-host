@@ -112,6 +112,7 @@ class PrivatePictureAccessIntegrationTest {
                     "--spring.main.banner-mode=off", "--logging.level.root=WARN");
             jdbc = app.getBean(JdbcTemplate.class);
             script("sql/create_sql.sql");
+            script("sql/alter_ai_picture_task.sql");
         } catch (Exception error) {
             stop();
             throw error;
@@ -180,6 +181,7 @@ class PrivatePictureAccessIntegrationTest {
         jdbc.update("DELETE FROM user");
         jdbc.update("DELETE FROM space");
         jdbc.update("DELETE FROM private_file_cleanup");
+        jdbc.update("DELETE FROM ai_picture_task");
         jdbc.update("INSERT INTO space(id,spaceName,userId) VALUES(101,'private',2),(102,'other',3)");
         seed(10, null, 2, 1, 1);
         seed(11, 101L, 3, 1, 1); // Deliberately different creator: space owner, not creator, controls access.
@@ -430,7 +432,7 @@ class PrivatePictureAccessIntegrationTest {
         assertNull(service.getById(12)); assertNull(service.getById(14));
         assertUsage(1, 100);
         assertEquals(1, taskCount());
-        verify(app.getBean(PictureFileCleanupManager.class)).deleteQuietly("https://public.test/image.jpg", "expired-draft");
+        verify(app.getBean(PictureFileCleanupManager.class)).enqueueCommitted(Collections.singletonList("https://public.test/image.jpg"));
     }
 
     @Test
@@ -538,6 +540,50 @@ class PrivatePictureAccessIntegrationTest {
     private void stubUpload(long bytes) {
         when(app.getBean(FileManager.class).uploadPrivatePicture(any(), eq(101L)))
                 .thenAnswer(invocation -> uploaded(bytes));
+    }
+
+    private AiApplyClaim aiClaim(long pictureId) {
+        Picture picture=service.getById(pictureId);
+        learn.gjx.tuku1.model.entity.AiPictureTask task=new learn.gjx.tuku1.model.entity.AiPictureTask();
+        task.setId(UUID.randomUUID().toString());task.setRequestId(UUID.randomUUID().toString());task.setUserId(2L);
+        task.setPictureId(pictureId);task.setSourceUrl(picture.getUrl());task.setXScale(2d);task.setYScale(2d);
+        task.setProviderModel("qwen-image-3.0");task.setCreateTime(new Date());task.setExpiresAt(new Date(System.currentTimeMillis()+1800000));
+        AiTaskStore store=app.getBean(AiTaskStore.class);store.reserve(task);store.claimGeneration(task.getId(),new Date());store.completed(task.getId(),"https://result.invalid/image.png");
+        return store.beginApply(store.find(task.getId(),2L),2L);
+    }
+
+    @Test void privateAiApplicationCommitsPictureQuotaCleanupAndTaskTogether() {
+        stubUpload(350);AiApplyClaim claim=aiClaim(11L);PictureUploadRequest request=uploadRequest();request.setId(11L);
+        service.uploadAiPicture(file(),request,user(2),claim);
+        AiTaskStore store=app.getBean(AiTaskStore.class);
+        assertEquals("APPLIED",store.find(claim.getTaskId(),2L).getStatus());assertUsage(2,450);
+        assertNotEquals(claim.getSourceUrl(),service.getById(11L).getUrl());
+        assertEquals(1,taskCount());store.applyUncertain(claim);
+        assertEquals("APPLIED",store.find(claim.getTaskId(),2L).getStatus());
+    }
+
+    @Test void privateAiRollbackKeepsOriginalAndClaimCanBeSafelyRecovered() {
+        stubUpload(350);AiApplyClaim claim=aiClaim(11L);PictureUploadRequest request=uploadRequest();request.setId(11L);
+        jdbc.update("UPDATE space SET maxSize=200 WHERE id=101");
+        assertThrows(BusinessException.class,()->service.uploadAiPicture(file(),request,user(2),claim));
+        AiTaskStore store=app.getBean(AiTaskStore.class);
+        assertEquals("APPLYING",store.find(claim.getTaskId(),2L).getStatus());assertUsage(2,200);
+        assertEquals(claim.getSourceUrl(),service.getById(11L).getUrl());
+        store.applyUncertain(claim);assertTrue(store.recoverApply(store.find(claim.getTaskId(),2L)));assertNull(store.nextQueued());
+    }
+
+    @Test void publicAiTaskAndPictureRollbackWhenCleanupOutboxCannotBeWritten() {
+        AiApplyClaim claim=aiClaim(10L);PictureUploadRequest request=new PictureUploadRequest();request.setId(10L);
+        PictureUploadResult result=new PictureUploadResult();result.setUrl("https://public.test/new.jpg");result.setOriginalUrl(result.getUrl());result.setPicSize(300L);
+        when(app.getBean(FileManager.class).uploadPicture(any(),eq("public/2"))).thenReturn(result);
+        doThrow(new IllegalStateException("outbox unavailable")).when(app.getBean(PictureFileCleanupManager.class)).enqueueCommitted(anyCollection());
+        assertThrows(RuntimeException.class,()->service.uploadAiPicture(file(),request,user(2),claim));
+        assertEquals(claim.getSourceUrl(),service.getById(10L).getUrl());
+        assertEquals("APPLYING",app.getBean(AiTaskStore.class).find(claim.getTaskId(),2L).getStatus());
+        org.mockito.Mockito.reset(app.getBean(PictureFileCleanupManager.class));
+        service.uploadAiPicture(file(),request,user(2),claim);
+        assertEquals(result.getUrl(),service.getById(10L).getUrl());
+        assertEquals("APPLIED",app.getBean(AiTaskStore.class).find(claim.getTaskId(),2L).getStatus());
     }
 
     private void assertUsage(long count, long bytes) {
@@ -799,6 +845,21 @@ class PrivatePictureAccessIntegrationTest {
         });
         assertThrows(BusinessException.class, () -> service.uploadPicture(file(), uploadRequest(), user(2)));
         assertUsage(2, 200); assertEquals(5L, service.count());
+    }
+
+    @Test
+    void cleanupRetryBackoffCannotRenewAnExpiredPrivateUploadLease() {
+        PictureUploadResult orphan = uploaded(300);
+        makeCleanupTasksDue();
+        doThrow(new IllegalStateException("delete response lost")).when(cos).deleteObject(anyString(), anyString());
+        PrivatePictureCleanupManager cleanup = app.getBean(PrivatePictureCleanupManager.class);
+        cleanup.retryPending();
+        assertTrue(jdbc.queryForObject("SELECT nextAttemptTime FROM private_file_cleanup", Date.class).after(new Date()));
+        assertThrows(BusinessException.class, () -> app.getBean(org.springframework.transaction.support.TransactionTemplate.class)
+                .execute(status -> { cleanup.adopt(101L, Collections.singleton(orphan.getUrl())); return null; }));
+        assertEquals(1, taskCount());
+        assertEquals(1, jdbc.queryForObject("SELECT attempts FROM private_file_cleanup", Integer.class));
+        assertUsage(2, 200);
     }
 
     @Test
@@ -1233,6 +1294,7 @@ class PrivatePictureAccessIntegrationTest {
             learn.gjx.tuku1.controller.PictureExtensionController.class, learn.gjx.tuku1.service.PictureExtensionService.class,
             PictureAccessManager.class, PrivatePictureFileManager.class, PrivatePictureStorageProperties.class,
             PrivatePictureWriteManager.class, PrivatePictureCleanupManager.class,
+            AiTaskStore.class, AiEditingProperties.class,
             CollaborationService.class, CollaborationQueue.class, CollaborationWriteGuard.class,
             AuthInterceptor.class, GlobalExceptionHandler.class})
     static class TestApplication {

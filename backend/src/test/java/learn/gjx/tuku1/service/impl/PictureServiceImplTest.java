@@ -36,6 +36,7 @@ class PictureServiceImplTest {
     private PictureFileCleanupManager cleanupManager;
     private UserService userService;
     private TransactionTemplate transactionTemplate;
+    private learn.gjx.tuku1.mapper.PictureMapper mapper;
 
     @BeforeEach
     void setUp() {
@@ -51,6 +52,9 @@ class PictureServiceImplTest {
         ReflectionTestUtils.setField(pictureService, "transactionTemplate", transactionTemplate);
         ReflectionTestUtils.setField(pictureService, "pictureAccessManager",
                 new learn.gjx.tuku1.manager.space.PictureAccessManager());
+        mapper = mock(learn.gjx.tuku1.mapper.PictureMapper.class);
+        ReflectionTestUtils.setField(pictureService, "baseMapper", mapper);
+        ReflectionTestUtils.setField(pictureService, "pictureListRevision", mock(learn.gjx.tuku1.manager.cache.PictureListRevision.class));
     }
 
     @Test
@@ -102,13 +106,11 @@ class PictureServiceImplTest {
         PictureUploadResult uploadResult = uploadResult("https://cos.example.com/new.jpg");
         doReturn(oldPicture).when(pictureService).getById(10L);
         when(fileManager.uploadPicture(file, "public/1")).thenReturn(uploadResult);
-        when(transactionTemplate.execute(any(TransactionCallback.class))).thenReturn(new PictureVO());
+        executeReplacement(oldPicture);
 
         pictureService.uploadPicture(file, request, user);
 
-        verify(cleanupManager).deleteQuietly(oldPicture.getOriginalUrl(), "replace-picture");
-        verify(cleanupManager).deleteQuietly(oldPicture.getUrl(), "replace-picture");
-        verify(cleanupManager).deleteQuietly(oldPicture.getThumbnailUrl(), "replace-picture");
+        verify(cleanupManager).enqueueCommitted(java.util.Arrays.asList(oldPicture.getOriginalUrl(),oldPicture.getUrl(),oldPicture.getThumbnailUrl()));
     }
 
     @Test
@@ -125,11 +127,11 @@ class PictureServiceImplTest {
         PictureUploadResult uploadResult = uploadResult("https://cos.example.com/new.jpg");
         doReturn(oldPicture).when(pictureService).getById(10L);
         when(fileManager.uploadPicture(file, "public/1")).thenReturn(uploadResult);
-        when(transactionTemplate.execute(any(TransactionCallback.class))).thenReturn(new PictureVO());
+        executeReplacement(oldPicture);
 
         pictureService.uploadPicture(file, request, user);
 
-        verify(cleanupManager).deleteQuietly(oldPicture.getUrl(), "replace-picture");
+        verify(cleanupManager).enqueueCommitted(java.util.Collections.singletonList(oldPicture.getUrl()));
     }
 
     @Test
@@ -158,5 +160,15 @@ class PictureServiceImplTest {
         PictureUploadResult result = new PictureUploadResult();
         result.setUrl(url);
         return result;
+    }
+
+    private void executeReplacement(Picture oldPicture) {
+        when(mapper.selectForUpdate(oldPicture.getId())).thenReturn(oldPicture);
+        when(transactionTemplate.execute(any(TransactionCallback.class))).thenAnswer(i -> ((TransactionCallback<?>) i.getArgument(0)).doInTransaction(mock(org.springframework.transaction.TransactionStatus.class)));
+        when(userService.isAdmin(any())).thenReturn(true);
+        doReturn(true).when(pictureService).saveOrUpdate(any(Picture.class));
+        doReturn(true).when(pictureService).update(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class));
+        com.baomidou.mybatisplus.extension.conditions.update.LambdaUpdateChainWrapper<Picture> chain = mock(com.baomidou.mybatisplus.extension.conditions.update.LambdaUpdateChainWrapper.class, org.mockito.Mockito.RETURNS_SELF);
+        doReturn(chain).when(pictureService).lambdaUpdate();
     }
 }

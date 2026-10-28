@@ -50,12 +50,12 @@ class AiPictureServiceTest {
         assertThrows(BusinessException.class,()->service.create(body,user,"/api"));verifyNoInteractions(store,provider,files);
     }
     @Test void duplicateRequestDoesNotResubmit()throws Exception {
-        AiPictureTask old=new AiPictureTask();old.setId(UUID.randomUUID().toString());old.setStatus("UNKNOWN");
+        AiPictureTask old=new AiPictureTask();old.setId(UUID.randomUUID().toString());old.setStatus("UNKNOWN");old.setExpiresAt(new Date(System.currentTimeMillis()+100000));
         when(store.reserve(any())).thenReturn(old);assertEquals("UNKNOWN",service.create(body,user,"/api").getStatus());verifyNoInteractions(provider,files);
     }
     @Test void queryRejectsForeignTaskBeforeCallingProvider(){when(store.find(anyString(),eq(1L))).thenReturn(null);assertThrows(BusinessException.class,()->service.get(UUID.randomUUID().toString(),user,"/api"));verifyNoInteractions(provider);}
     private AiPictureTask task(String status){
-        saved=new AiPictureTask();saved.setId(UUID.randomUUID().toString());saved.setPictureId(11L);saved.setStatus(status);saved.setSourceUrl("source");saved.setCreateTime(new Date());saved.setExpiresAt(new Date(System.currentTimeMillis()+100000));return saved;
+        saved=new AiPictureTask();saved.setId(UUID.randomUUID().toString());saved.setUserId(1L);saved.setPictureId(11L);saved.setStatus(status);saved.setSourceUrl("source");saved.setCreateTime(new Date());saved.setExpiresAt(new Date(System.currentTimeMillis()+100000));return saved;
     }
     @Test void resultReturnsOnlyAuthenticatedRoute(){AiPictureTask t=task("SUCCEEDED");t.setResultUrl("secret-signed-url");AiTaskVO vo=service.get(t.getId(),user,"/tuku/api");assertEquals("/tuku/api/picture/out_painting/result?taskId="+t.getId(),vo.getResultUrl());}
     @Test void quarantinedCandidateCanNeverBePreviewedOrApplied(){
@@ -73,24 +73,50 @@ class AiPictureServiceTest {
         picture.setName("原名称");picture.setIntroduction("说明");picture.setCategory("风景");picture.setTags("[\"旅行\"]");
         byte[] bytes=new byte[]{1};org.springframework.web.multipart.MultipartFile file=mock(org.springframework.web.multipart.MultipartFile.class);
         when(files.result("provider-result")).thenReturn(bytes);when(files.uploadFile(bytes)).thenReturn(file);
-        when(store.transition(eq(t.getId()),eq("SUCCEEDED"),eq("APPLYING"),anyString())).thenReturn(true);
+        AiApplyClaim claim=new AiApplyClaim(t.getId(),"token",1L,11L,"source");when(store.beginApply(t,1L)).thenReturn(claim);
         service.apply(t.getId(),user,new MockHttpServletRequest());
         org.mockito.ArgumentCaptor<PictureUploadRequest> arg=org.mockito.ArgumentCaptor.forClass(PictureUploadRequest.class);
-        verify(uploads).uploadPicture(eq(file),arg.capture(),eq(user));
+        verify(uploads).uploadAiPicture(eq(file),arg.capture(),eq(user),eq(claim));
         assertEquals(11L,arg.getValue().getId());assertEquals(8L,arg.getValue().getSpaceId());
         assertEquals("原名称",arg.getValue().getName());assertEquals("说明",arg.getValue().getIntroduction());
         assertEquals("风景",arg.getValue().getCategory());assertEquals(Collections.singletonList("旅行"),arg.getValue().getTags());
-        verify(store).transition(t.getId(),"APPLYING","APPLIED","结果已应用");
+        verify(store,never()).transition(eq(t.getId()),eq("APPLYING"),eq("APPLIED"),anyString());
     }
     @Test void applyFailureRecordsUncertaintyAndDoesNotRetryUpload(){
         AiPictureTask t=task("SUCCEEDED");t.setResultUrl("provider-result");
         org.springframework.web.multipart.MultipartFile file=mock(org.springframework.web.multipart.MultipartFile.class);
         when(files.uploadFile(any())).thenReturn(file);
-        when(store.transition(eq(t.getId()),eq("SUCCEEDED"),eq("APPLYING"),anyString())).thenReturn(true);
-        when(uploads.uploadPicture(eq(file),any(),eq(user))).thenThrow(new RuntimeException("test failure"));
+        AiApplyClaim claim=new AiApplyClaim(t.getId(),"token",1L,11L,"source");when(store.beginApply(t,1L)).thenReturn(claim);
+        when(uploads.uploadAiPicture(eq(file),any(),eq(user),eq(claim))).thenThrow(new RuntimeException("test failure"));
         assertThrows(BusinessException.class,()->service.apply(t.getId(),user,new MockHttpServletRequest()));
-        verify(uploads,times(1)).uploadPicture(eq(file),any(),eq(user));
-        verify(store).transition(eq(t.getId()),eq("APPLYING"),eq("APPLY_UNKNOWN"),anyString());
+        verify(uploads,times(1)).uploadAiPicture(eq(file),any(),eq(user),eq(claim));
+        verify(store).applyUncertain(claim);
     }
     @Test void queryingQueuedTaskOnlyReadsDatabase(){AiPictureTask t=task("QUEUED");assertEquals("QUEUED",service.get(t.getId(),user,"/api").getStatus());verifyNoInteractions(provider,files);verify(store).expireStale(eq(t.getId()),any());}
+    @Test void recoveryRechecksOwnershipAndPermissionBeforeReadingReceipt() {
+        AiPictureTask t=task("UNKNOWN");doThrow(new BusinessException(ErrorCode.NO_AUTH_ERROR)).when(access).checkEdit(picture,user);
+        assertThrows(BusinessException.class,()->service.recover(t.getId(),user,"/api"));verifyNoInteractions(files,provider);
+    }
+    @Test void recoverApplyRequiresAtomicEvidenceAndNeverUploads() {
+        AiPictureTask t=task("APPLY_UNKNOWN");assertThrows(BusinessException.class,()->service.recover(t.getId(),user,"/api"));
+        t.setApplyToken("receipt");when(store.recoverApply(t)).thenAnswer(i->{t.setStatus("SUCCEEDED");return true;});
+        assertEquals("SUCCEEDED",service.recover(t.getId(),user,"/api").getStatus());verifyNoInteractions(files,provider,uploads);
+    }
+    @Test void recoveryValidatesSavedReceiptWithoutGeneratingAgain() {
+        AiPictureTask t=task("UNKNOWN");t.setProviderModel(AliyunOutpaintingClient.MODEL);t.setProviderRequestId("request-test");t.setResultUrl("saved-receipt");
+        byte[] bytes={1};when(files.result("saved-receipt")).thenReturn(bytes);
+        when(store.recoverReceipt(t)).thenAnswer(i->{t.setStatus("SUCCEEDED");return true;});
+        assertEquals("SUCCEEDED",service.recover(t.getId(),user,"/api").getStatus());verify(files).uploadFile(bytes);verifyNoInteractions(provider,uploads);
+    }
+    @Test void invalidReceiptCannotBecomeUsable() {
+        AiPictureTask t=task("UNKNOWN");t.setProviderModel(AliyunOutpaintingClient.MODEL);t.setProviderRequestId("request-test");t.setResultUrl("untrusted");
+        when(files.result("untrusted")).thenThrow(new BusinessException(ErrorCode.OPERATION_ERROR));
+        assertThrows(BusinessException.class,()->service.recover(t.getId(),user,"/api"));verify(store,never()).recoverReceipt(any());verifyNoInteractions(provider,uploads);
+    }
+    @Test void expiredUncertaintyDoesNotLockTheBrowserForeverOrEraseEvidence() {
+        AiPictureTask t=task("APPLY_UNKNOWN");t.setExpiresAt(new Date(0));
+        AiTaskVO view=service.get(t.getId(),user,"/api");assertEquals("EXPIRED",view.getStatus());
+        assertTrue(view.getMessage().contains("可能再次计费"));assertEquals("APPLY_UNKNOWN",t.getStatus());assertNull(view.getResultUrl());
+        assertThrows(BusinessException.class,()->service.recover(t.getId(),user,"/api"));verifyNoInteractions(files,provider,uploads);
+    }
 }

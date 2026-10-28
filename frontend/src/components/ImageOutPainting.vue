@@ -19,6 +19,7 @@
     <a-space wrap>
       <a-button type="primary" :disabled="!available || !consent || locked || loading" :loading="creating" @click="create">生成图片</a-button>
       <a-button v-if="task" :disabled="busy || checking" @click="refresh">刷新任务</a-button>
+      <a-button v-if="task && ['UNKNOWN', 'APPLY_UNKNOWN'].includes(task.status)" :loading="recovering" :disabled="busy || checking" @click="recover">核对并恢复已有结果</a-button>
       <a-button v-if="task?.status === 'SUCCEEDED'" type="primary" :loading="applying" :disabled="!preview || busy" @click="apply">应用结果并替换</a-button>
     </a-space>
     <p>关闭窗口只停止本页轮询，不会取消云端任务。重新打开可恢复查询。超过 2 MB 的 AI 结果保存时会压缩为 JPEG。</p>
@@ -27,23 +28,31 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from 'vue'
 import { message } from 'ant-design-vue'
-import { aiCapabilities, latestAiTask, createAiTask, getAiTask, applyAiTask, editingBlob, taskPending, type AiTask } from '@/service/aiEditing'
+import { getPictureVoByIdUsingGet } from '@/service/api/pictureController'
+import { aiCapabilities, latestAiTask, createAiTask, getAiTask, applyAiTask, recoverAiTask, editingBlob, taskPending, type AiTask } from '@/service/aiEditing'
 const props = defineProps<{ picture: API.PictureVO; onSuccess?: (p: API.PictureVO) => void | Promise<void> }>()
 const emit = defineEmits<{ busy: [value: boolean] }>()
 const open = ref(false), loading = ref(false), creating = ref(false), applying = ref(false), checking = ref(false)
 const available = ref(false), consent = ref(false), error = ref(''), preview = ref('')
 const task = ref<AiTask>(), xScale = ref<number | null>(2), yScale = ref<number | null>(2)
-const busy = computed(() => creating.value || applying.value)
+const recovering = ref(false)
+const busy = computed(() => creating.value || applying.value || recovering.value)
 const locked = computed(() => busy.value || taskPending(task.value?.status) || ['UNKNOWN', 'APPLY_UNKNOWN', 'APPLYING'].includes(task.value?.status || ''))
 const labels: Record<string, string> = { QUEUED: '等待后台处理', SUBMITTING: '正在生成（请勿重复提交）', PENDING: '排队中', RUNNING: '生成中', SUSPENDED: '等待恢复', SUCCEEDED: '已生成，尚未应用', FAILED: '生成失败', CANCELED: '已取消', UNKNOWN: '结果未确认', APPLYING: '正在保存', APPLY_UNKNOWN: '保存未确认', APPLIED: '已应用', EXPIRED: '结果已过期' }
 const statusLabel = computed(() => task.value ? labels[task.value.status] || '未知状态' : '尚未生成')
 let generation = 0, timer: ReturnType<typeof setTimeout> | undefined, abort: AbortController | undefined
-let requestId = '', previewTask = '', deadline = 0
-function cleanup() { generation++; clearTimeout(timer); abort?.abort(); if (preview.value) URL.revokeObjectURL(preview.value); preview.value = ''; previewTask = '' }
+let requestId = '', previewTask = '', appliedTask = '', deadline = 0
+function cleanup() { generation++; clearTimeout(timer); abort?.abort(); if (preview.value) URL.revokeObjectURL(preview.value); preview.value = ''; previewTask = ''; appliedTask = '' }
 function close() { if (busy.value) return; open.value = false; cleanup() }
 async function accept(value: AiTask | undefined, ticket: number) {
   if (ticket !== generation) return
   task.value = value
+  if (value?.status === 'APPLIED' && appliedTask !== value.id) {
+    const response = await getPictureVoByIdUsingGet({ id: value.pictureId })
+    if (ticket !== generation) return
+    if (response.code !== 0 || !response.data) throw new Error(response.message || '任务已应用，但图片信息刷新失败')
+    await props.onSuccess?.(response.data); appliedTask = value.id
+  }
   if (value?.status === 'SUCCEEDED' && value.resultUrl && previewTask !== value.id) {
     abort?.abort(); abort = new AbortController()
     const blob = await editingBlob(value.resultUrl, abort.signal)
@@ -96,13 +105,23 @@ async function refresh() {
 }
 async function apply() {
   if (!task.value || task.value.status !== 'SUCCEEDED' || busy.value) return
-  applying.value = true; emit('busy', true)
+  applying.value = true; emit('busy', true); deadline = Date.now() + 10 * 60 * 1000
   try {
     const response = await applyAiTask(task.value.id)
     if (response.code !== 0 || !response.data) throw new Error(response.message || '保存未确认')
-    await props.onSuccess?.(response.data); task.value.status = 'APPLIED'; message.success('扩图结果已应用')
+    await props.onSuccess?.(response.data); appliedTask = task.value.id; task.value.status = 'APPLIED'; message.success('扩图结果已应用')
   } catch (e) { error.value = `${e instanceof Error ? e.message : '保存未确认'}；先刷新任务状态和图片，不要重新生成。` }
   finally { applying.value = false; emit('busy', false); void refresh() }
+}
+async function recover() {
+  if (!task.value || busy.value || checking.value) return
+  const ticket = generation; recovering.value = true; emit('busy', true); error.value = ''
+  try {
+    const response = await recoverAiTask(task.value.id)
+    if (response.code !== 0 || !response.data) throw new Error(response.message || '核对失败')
+    await accept(response.data, ticket)
+  } catch (e) { if (ticket === generation) error.value = e instanceof Error ? e.message : '核对失败，未重新生成' }
+  finally { recovering.value = false; emit('busy', false) }
 }
 onBeforeUnmount(cleanup)
 defineExpose({ openModal })

@@ -227,6 +227,10 @@ export function designPreviewPlugin(): Plugin {
           reply(user)
           return
         }
+        if (url.pathname === '/api/picture/capabilities') {
+          reply({ privateStorageConfigured: false, externalImageSearchEnabled: false })
+          return
+        }
         if (url.pathname === '/api/picture/tag_category') {
           reply({
             categoryList: ['自然', '建筑', '插画', '海报'],

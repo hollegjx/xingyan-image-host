@@ -56,6 +56,7 @@ async function mockSpace(
     const request = route.request()
     const url = new URL(request.url())
     const path = url.pathname
+    if (path === '/api/picture/capabilities') return route.fulfill({ json: { code: 0, data: { privateStorageConfigured: true, externalImageSearchEnabled: true } } })
     const body = request.headers()['content-type']?.includes('application/json')
       ? request.postDataJSON()
       : {}

@@ -32,11 +32,14 @@ npm run dev:design
 mysql -u root -p -e "CREATE DATABASE tuku CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 mysql -u root -p tuku < backend/sql/create_sql.sql
 mysql -u root -p tuku < backend/sql/alter_ai_picture_task.sql
+mysql -u root -p tuku < backend/sql/alter_public_file_cleanup.sql
 ```
 
-第一份脚本已包含用户、图片、空间、成员、缓存版本与私有文件清理表；第二份创建 AI 任务相关表。`create_sql.sql` 包含固定的 `USE tuku`，且用户表及部分索引创建不是幂等操作，不能直接重复运行或当作旧库升级脚本。
+第一份脚本已包含用户、图片、空间、成员、缓存版本与私有文件清理表；第二份创建 AI 任务相关表；第三份创建公共文件上传凭据和持久化清理表。`create_sql.sql` 包含固定的 `USE tuku`，且用户表及部分索引创建不是幂等操作，不能直接重复运行或当作旧库升级脚本。
 
 其余 `alter_*.sql` 供已有数据库按实际结构升级。不要把全部文件无差别执行一遍；已有 AI 旧表升级可核对 `alter_ai_qwen_migration.sql`。应用不会自动替你执行这些 SQL。
+
+升级到包含任务恢复与持久化清理的版本前，还需执行 `alter_ai_apply_recovery.sql` 和 `alter_public_file_cleanup.sql`。先迁移、停掉旧版本写入进程，再启动新版本，不能混跑两种提交协议。操作顺序和真实云端验收边界见 [可靠性修复与发布检查](reliability-release-checklist.md)。
 
 ### 配置后端
 
@@ -51,9 +54,12 @@ mysql -u root -p tuku < backend/sql/alter_ai_picture_task.sql
 | `REDIS_DATABASE` | 默认 0；建议开发环境独立使用 |
 | `COS_SECRET_ID` / `COS_SECRET_KEY` | 自己的云访问凭据，不能填入前端环境变量 |
 | `COS_REGION` / `COS_BUCKET` | 真实地域与公共图片使用的存储桶 |
+| `COS_ACCELERATE_ENABLED` | 默认 `false`；公共桶先开通全球加速后可设 `true`。仅切换后端公共桶 SDK 请求入口，保留真实地域、展示 URL 和私有桶入口；加速流量另行计费 |
 | `PICTURE_COLLABORATION_ALLOWED_ORIGINS` | WebSocket 来源白名单，逗号分隔；默认仅允许 localhost 的 5173、4173 端口 |
 
 示例值为空不等于服务已配置；COS 客户端会校验凭据参数。以图搜图、AI、私有存储默认关闭，先保持关闭验证基础服务。
+
+公共桶的全球加速配置、验收和回退说明见 [COS 公共图片全球加速](cos-global-acceleration.md)。
 
 部署协同编辑时，通过服务器环境变量配置准确的前端 Origin，例如 `https://images.example.com`（仅为示例）；Origin 不包含路径，不要使用 `*`。此变量由 `application.example.yml` 映射到 `picture.collaboration.allowed-origins`；使用已有自定义配置时，也需要添加同样的环境变量映射，或显式设置该 Spring 属性。真实生产域名不要写入源码或测试。
 

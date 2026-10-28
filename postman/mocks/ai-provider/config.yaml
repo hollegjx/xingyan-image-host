@@ -1,0 +1,9 @@
+version: 1
+name: ai-provider
+slug: ai-provider
+protocol: http
+interceptRequests: true
+scenarios:
+  - name: default
+    path: ./default.js
+    default: true

@@ -27,6 +27,7 @@ public class PrivatePictureWriteManager {
     @Resource private PrivatePictureFileManager storage;
     @Resource private PrivatePictureCleanupManager cleanup;
     @Resource private TransactionTemplate transactionTemplate;
+    @Resource private learn.gjx.tuku1.manager.AiTaskStore aiTaskStore;
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private learn.gjx.tuku1.infrastructure.collaboration.CollaborationWriteGuard collaboration;
 
@@ -41,6 +42,11 @@ public class PrivatePictureWriteManager {
     }
 
     public Picture save(Picture uploaded, Picture expected, User user, String editToken, Long editRevision) {
+        return save(uploaded, expected, user, editToken, editRevision, null);
+    }
+
+    public Picture save(Picture uploaded, Picture expected, User user, String editToken, Long editRevision,
+                        learn.gjx.tuku1.manager.AiApplyClaim claim) {
         standalone();
         try {
             access.requireSpacePermission(uploaded.getSpaceId(), user, expected == null ? UPLOAD : EDIT);
@@ -56,6 +62,7 @@ public class PrivatePictureWriteManager {
                 }
                 if (current != null && collaboration != null)
                     collaboration.protect(current, uploaded, user.getId(), editToken, editRevision);
+                if (claim != null) aiTaskStore.commitApply(claim, current, user.getId());
                 long oldSize = current == null ? 0 : size(current);
                 adjust(space, size(uploaded) - oldSize, current == null ? 1 : 0);
                 cleanup.adopt(space.getId(), files(uploaded));

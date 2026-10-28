@@ -19,6 +19,7 @@ public class AiPictureTask {
     private Integer outputWidth;
     private Integer outputHeight;
     private String status;
+    private String applyToken;
     private String resultUrl;
     private String message;
     private Date createTime;

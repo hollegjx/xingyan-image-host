@@ -89,6 +89,9 @@ public class FileManager {
     private PrivatePictureCleanupManager privateCleanup;
 
     @Resource
+    private PictureFileCleanupManager publicCleanup;
+
+    @Resource
     private CosClientConfig cosClientConfig;
 
     /**
@@ -180,6 +183,8 @@ public class FileManager {
                 .stream().filter(StrUtil::isNotBlank).map(key -> targetUrl(key, spaceId)).collect(Collectors.toList());
         if (spaceId != null) {
             privateCleanup.registerUpload(spaceId, plannedUrls);
+        } else {
+            publicCleanup.registerUpload(plannedUrls);
         }
         try {
             PutObjectResult putObjectResult = spaceId == null
@@ -263,7 +268,7 @@ public class FileManager {
                 cleanupUnusedObject(derivativePlan.getDisplayKey(), "display-not-smaller", spaceId);
             }
         } else if (StrUtil.isNotBlank(derivativePlan.getDisplayKey())) {
-            if (spaceId != null) { cleanupUnusedObject(derivativePlan.getDisplayKey(), "display-missing", spaceId); }
+            cleanupUnusedObject(derivativePlan.getDisplayKey(), "display-missing", spaceId);
             log.warn("COS 未返回主展示派生图，回退原图, key: {}", derivativePlan.getDisplayKey());
         }
 
@@ -276,7 +281,7 @@ public class FileManager {
                 cleanupUnusedObject(derivativePlan.getThumbnailKey(), "thumbnail-not-smaller", spaceId);
             }
         } else if (StrUtil.isNotBlank(derivativePlan.getThumbnailKey())) {
-            if (spaceId != null) { cleanupUnusedObject(derivativePlan.getThumbnailKey(), "thumbnail-missing", spaceId); }
+            cleanupUnusedObject(derivativePlan.getThumbnailKey(), "thumbnail-missing", spaceId);
             log.warn("COS 未返回缩略派生图，前端将回退主展示图, key: {}", derivativePlan.getThumbnailKey());
         }
 
@@ -323,11 +328,7 @@ public class FileManager {
         if (StrUtil.isBlank(key)) {
             return;
         }
-        try {
-            cosManager.deleteObject(StrUtil.removePrefix(key, "/"));
-        } catch (Exception cleanupException) {
-            log.error("清理 COS 对象失败, scene: {}, key: {}", scene, key, cleanupException);
-        }
+        publicCleanup.deleteQuietly(getFileUrl(StrUtil.removePrefix(key, "/")), scene);
     }
 
     private String targetUrl(String key, Long spaceId) {
@@ -635,13 +636,39 @@ public class FileManager {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "处理规则不能超过 5 条");
         }
 
+        String directory = StrUtil.blankToDefault(outputDir, "processed");
+        if (!directory.matches("[A-Za-z0-9_-]{1,64}")) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "输出目录仅支持名称，不能指定存储路径");
+        }
+        for (PictureProcessRule rule : validRules) {
+            if (rule.getRule().length() > 512 || rule.getRule().toLowerCase(Locale.ROOT).contains("saveas")
+                    || rule.getRule().matches("(?s).*[|&?%\\r\\n].*")) {
+                throw new BusinessException(ErrorCode.PARAMS_ERROR, "处理规则不能包含额外输出或请求参数");
+            }
+            if (StrUtil.isNotBlank(rule.getOutputFileName())
+                    && !rule.getOutputFileName().matches("[A-Za-z0-9_-]{1,80}(\\.(jpg|jpeg|png|webp|gif))?")) {
+                throw new BusinessException(ErrorCode.PARAMS_ERROR, "输出文件名不合法");
+            }
+        }
+        String requestDir = "public/processing/" + java.util.UUID.randomUUID();
+        PicOperations picOperations = buildPicOperations(validRules, requestDir + "/" + directory, FileUtil.getSuffix(sourceKey));
+        String uploadKey = requestDir + "/source." + FileUtil.getSuffix(sourceKey);
+        List<String> planned = new ArrayList<>();planned.add(getFileUrl(uploadKey));
+        picOperations.getRules().forEach(rule -> planned.add(getFileUrl(StrUtil.removePrefix(rule.getFileId(), "/"))));
+        Date expiresAt = new Date(System.currentTimeMillis() + 23 * 60 * 60 * 1000L);
         File tempFile = null;
         try {
             tempFile = copyRemoteFileToTemp(sourceKey);
-            PicOperations picOperations = buildPicOperations(validRules, outputDir, FileUtil.getSuffix(sourceKey));
-            String uploadKey = buildProcessUploadKey(sourceKey);
-            PutObjectResult putObjectResult = cosManager.putPictureObject(uploadKey, tempFile, picOperations);
-            return buildProcessResult(putObjectResult);
+            publicCleanup.registerUpload(planned);
+            try {
+                PutObjectResult putObjectResult = cosManager.putPictureObject(uploadKey, tempFile, picOperations);
+                PictureProcessResult result = buildProcessResult(putObjectResult);
+                result.setExpiresAt(expiresAt);
+                return result;
+            } catch (RuntimeException error) {
+                planned.forEach(url -> publicCleanup.deleteQuietly(url, "process-failed"));
+                throw error;
+            }
         } finally {
             if (tempFile != null && tempFile.exists() && !tempFile.delete()) {
                 log.warn("临时文件删除失败: {}", tempFile.getAbsolutePath());
@@ -708,18 +735,7 @@ public class FileManager {
                     index,
                     suffix);
         }
-        return String.format("%s/%s", targetDir, fileName);
-    }
-
-    private String buildProcessUploadKey(String sourceKey) {
-        String suffix = FileUtil.getSuffix(sourceKey);
-        if (StrUtil.isBlank(suffix)) {
-            suffix = "tmp";
-        }
-        return String.format("processing/%s_%s.%s",
-                DateUtil.format(new Date(), "yyyyMMddHHmmss"),
-                RandomUtil.randomString(8),
-                suffix);
+        return String.format("/%s/%d_%s", targetDir, index, fileName);
     }
 
     private PictureProcessResult buildProcessResult(PutObjectResult putObjectResult) {

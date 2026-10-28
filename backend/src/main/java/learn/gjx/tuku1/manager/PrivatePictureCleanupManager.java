@@ -15,7 +15,7 @@ import javax.annotation.Resource;
 import java.util.*;
 import java.util.stream.Collectors;
 
-/** 私有文件使用数据库任务；与公共图库现有的内存清理队列相互独立。 */
+/** 私有文件使用独立的数据库清理任务。 */
 @Component
 @Slf4j
 public class PrivatePictureCleanupManager {
@@ -37,7 +37,9 @@ public class PrivatePictureCleanupManager {
         requireTransaction();
         for (String url : distinct(urls)) {
             List<PrivateFileCleanup> tasks = mapper.lockByUrl(spaceId, url);
-            if (tasks.isEmpty() || tasks.stream().anyMatch(t -> !t.getNextAttemptTime().after(new Date()))) {
+            // A failed delete can have succeeded remotely, so its backoff cannot renew the upload lease.
+            if (tasks.isEmpty() || tasks.stream().anyMatch(t -> !Objects.equals(t.getAttempts(), 0)
+                    || !t.getNextAttemptTime().after(new Date()))) {
                 throw new BusinessException(ErrorCode.OPERATION_ERROR, "上传凭据已过期，请重新上传");
             }
             tasks.forEach(t -> mapper.deleteById(t.getId()));

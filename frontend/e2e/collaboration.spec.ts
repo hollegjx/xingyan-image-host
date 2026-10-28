@@ -31,6 +31,7 @@ async function mock(context: BrowserContext) {
   }
   await context.route('**/api/**', async (route) => {
     const path = new URL(route.request().url()).pathname
+    if (path === '/api/picture/capabilities') return route.fulfill({ json: { code: 0, data: { privateStorageConfigured: true, externalImageSearchEnabled: true } } })
     if (path.endsWith('/editing/source'))
       return route.fulfill({
         contentType: 'image/svg+xml',

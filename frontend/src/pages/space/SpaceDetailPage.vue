@@ -11,6 +11,8 @@
       </a-alert>
       <!-- Hide failed loads without discarding the user's search form; the gallery is cleared in load(). -->
       <div v-if="space" v-show="!error">
+        <a-alert v-if="!capabilities.privateStorageConfigured" type="warning" show-icon
+          :message="capabilityError || '私有图片存储尚未配置，暂不可上传或替换图片。空间和成员管理仍可使用。'" />
         <header class="space-header">
           <div class="space-heading">
             <span class="space-eyebrow"
@@ -28,6 +30,7 @@
             v-if="can('upload')"
             type="primary"
             class="space-upload"
+            :disabled="!capabilities.privateStorageConfigured"
             aria-label="上传到此空间"
             @click="upload"
             ><PlusOutlined />上传到此空间</a-button
@@ -152,6 +155,7 @@
           <a-button
             v-if="!hasFilters && mode !== 'color' && can('upload')"
             type="primary"
+            :disabled="!capabilities.privateStorageConfigured"
             @click="upload"
             >上传第一张图片</a-button
           >
@@ -193,7 +197,7 @@
                     <a-menu-item key="view" @click="router.push(`/picture/${item.id}`)"
                       ><EyeOutlined /> 查看详情</a-menu-item
                     >
-                    <a-menu-item v-if="can('edit')" key="edit" @click="upload(item)"
+                    <a-menu-item v-if="can('edit')" key="edit" :disabled="!capabilities.privateStorageConfigured" @click="upload(item)"
                       ><EditOutlined /> 编辑 / 替换</a-menu-item
                     >
                     <a-menu-item key="share" @click="share(item)"
@@ -330,6 +334,8 @@ import PictureShareModal from '@/components/PictureShareModal.vue'
 import BatchEditPictureModal from '@/components/BatchEditPictureModal.vue'
 import { searchPictureByColorUsingPost } from '@/service/api/pictureExtensionController'
 import type { PictureSearchFilters, PictureSearchValues } from '@/utils/pictureSearch'
+import { usePictureCapabilities } from '@/composables/usePictureCapabilities'
+const { capabilities, capabilityError } = usePictureCapabilities()
 
 const props = defineProps<{ id: string }>()
 const router = useRouter()
@@ -504,6 +510,7 @@ async function load() {
 }
 
 function upload(picture?: API.PictureVO | Event) {
+  if (!capabilities.value.privateStorageConfigured) { message.warning('私有图片存储尚未配置'); return }
   const id = parseId(space.value?.id)
   if (!id) return
   const pictureId = picture && 'id' in picture ? parseId(picture.id) : undefined

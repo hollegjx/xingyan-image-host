@@ -36,6 +36,7 @@ class FileManagerTest {
     private FileManager fileManager;
     private CosManager cosManager;
     private PrivatePictureCleanupManager privateCleanup;
+    private PictureFileCleanupManager publicCleanup;
 
     @BeforeEach
     void setUp() {
@@ -54,6 +55,8 @@ class FileManagerTest {
         ReflectionTestUtils.setField(fileManager, "privateStorage", privateStorage);
         privateCleanup = mock(PrivatePictureCleanupManager.class);
         ReflectionTestUtils.setField(fileManager, "privateCleanup", privateCleanup);
+        publicCleanup = mock(PictureFileCleanupManager.class);
+        ReflectionTestUtils.setField(fileManager, "publicCleanup", publicCleanup);
     }
 
     @Test
@@ -61,6 +64,37 @@ class FileManagerTest {
         assertEquals("public/1/test.jpg", fileManager.extractKeyFromUrl(
                 "https://test-bucket.cos.ap-test.myqcloud.com/public/1/test.jpg"));
         assertNull(fileManager.extractKeyFromUrl("https://outside.example.com/test.jpg"));
+    }
+
+    @Test void publicUploadMustRegisterBeforeAnyCosWrite() {
+        org.mockito.Mockito.doThrow(new IllegalStateException("database unavailable")).when(publicCleanup).registerUpload(any());
+        assertThrows(IllegalStateException.class,()->fileManager.uploadPicture(new MockMultipartFile("file","image.jpg","image/jpeg",jpegBytes(30000)),"public/1"));
+        org.mockito.Mockito.verifyNoInteractions(cosManager);
+    }
+
+    @Test void processRejectsArbitraryPathsAndAdditionalOutputsBeforeCosAccess() {
+        learn.gjx.tuku1.model.dto.picture.PictureProcessRule rule=new learn.gjx.tuku1.model.dto.picture.PictureProcessRule();rule.setRule("rotate/90");
+        assertThrows(BusinessException.class,()->fileManager.processPicture("public/1/a.jpg",Arrays.asList(rule),"public/2"));
+        rule.setOutputFileName("../../victim.jpg");assertThrows(BusinessException.class,()->fileManager.processPicture("public/1/a.jpg",Arrays.asList(rule),null));
+        rule.setOutputFileName("safe.jpg");rule.setRule("imageMogr2/rotate/90|saveas/other");
+        assertThrows(BusinessException.class,()->fileManager.processPicture("public/1/a.jpg",Arrays.asList(rule),null));
+        org.mockito.Mockito.verifyNoInteractions(cosManager);
+    }
+
+    @Test void processedObjectsUseUniqueRegisteredTemporaryPaths() {
+        com.qcloud.cos.model.COSObject source=new com.qcloud.cos.model.COSObject();
+        source.setObjectContent(new com.qcloud.cos.model.COSObjectInputStream(new java.io.ByteArrayInputStream(jpegBytes(1000)),new org.apache.http.client.methods.HttpGet("https://unused.invalid/test")));
+        when(cosManager.getObject("public/1/a.jpg")).thenReturn(source);
+        when(cosManager.putPictureObject(anyString(),any(File.class),any(PicOperations.class))).thenReturn(uploadResult());
+        learn.gjx.tuku1.model.dto.picture.PictureProcessRule rule=new learn.gjx.tuku1.model.dto.picture.PictureProcessRule();rule.setRule("rotate/90");rule.setOutputFileName("a.jpg");
+        learn.gjx.tuku1.model.vo.PictureProcessResult result=fileManager.processPicture("public/1/a.jpg",Arrays.asList(rule,rule),"exports");
+        assertTrue(result.getExpiresAt().after(new java.util.Date()));
+        ArgumentCaptor<PicOperations> ops=ArgumentCaptor.forClass(PicOperations.class);
+        org.mockito.InOrder order=org.mockito.Mockito.inOrder(publicCleanup,cosManager);
+        order.verify(publicCleanup).registerUpload(any());order.verify(cosManager).putPictureObject(anyString(),any(File.class),ops.capture());
+        assertTrue(ops.getValue().getRules().get(0).getFileId().startsWith("/public/processing/"));
+        org.junit.jupiter.api.Assertions.assertNotEquals(ops.getValue().getRules().get(0).getFileId(),ops.getValue().getRules().get(1).getFileId());
+        org.mockito.Mockito.verifyNoInteractions(privateCleanup);
     }
 
     @Test
@@ -217,7 +251,7 @@ class FileManagerTest {
                 new MockMultipartFile("file", "test.jpg", "image/jpeg", jpegBytes(30 * 1024)), "public/1");
         assertEquals(result.getOriginalUrl(), result.getUrl());
         assertNull(result.getThumbnailUrl());
-        verify(cosManager, org.mockito.Mockito.times(2)).deleteObject(anyString());
+        verify(publicCleanup, org.mockito.Mockito.times(2)).deleteQuietly(anyString(), anyString());
     }
 
     @Test
@@ -239,9 +273,9 @@ class FileManagerTest {
         assertThrows(IllegalStateException.class, () -> fileManager.uploadPicture(
                 new MockMultipartFile("file", "test.jpg", "image/jpeg", jpegBytes(30 * 1024)), "public/1"));
         ArgumentCaptor<String> keys = ArgumentCaptor.forClass(String.class);
-        verify(cosManager, org.mockito.Mockito.times(3)).deleteObject(keys.capture());
+        verify(publicCleanup, org.mockito.Mockito.times(3)).deleteQuietly(keys.capture(), anyString());
         assertEquals(3, keys.getAllValues().stream().distinct().count());
-        assertTrue(keys.getAllValues().stream().allMatch(key -> key.startsWith("public/1/")));
+        assertTrue(keys.getAllValues().stream().allMatch(key -> key.startsWith("https://test-bucket.cos.ap-test.myqcloud.com/public/1/")));
     }
 
     @Test
@@ -250,7 +284,7 @@ class FileManagerTest {
                 .thenReturn(new PutObjectResult());
         assertThrows(BusinessException.class, () -> fileManager.uploadPicture(
                 new MockMultipartFile("file", "test.jpg", "image/jpeg", jpegBytes(30 * 1024)), "public/1"));
-        verify(cosManager, org.mockito.Mockito.times(3)).deleteObject(anyString());
+        verify(publicCleanup, org.mockito.Mockito.times(3)).deleteQuietly(anyString(), anyString());
     }
 
     @Test

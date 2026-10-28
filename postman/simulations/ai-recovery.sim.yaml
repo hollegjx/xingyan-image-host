@@ -1,0 +1,6 @@
+simulation: ai-recovery
+routing: path
+mocks:
+  - name: ai-provider
+    routeKey: provider
+    path: postman/mocks/ai-provider

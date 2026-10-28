@@ -148,6 +148,7 @@ import { useLoginUserStore } from '@/stores/useLoginUserStore'
 import SpaceUsage from '@/components/SpaceUsage.vue'
 import ImageCropper from '@/components/ImageCropper.vue'
 import ImageOutPainting from '@/components/ImageOutPainting.vue'
+import { loadPictureCapabilities } from '@/composables/usePictureCapabilities'
 
 const router = useRouter()
 const route = useRoute()
@@ -239,6 +240,9 @@ const loadContext = async () => {
         throw new Error('无权编辑此图片')
     }
     if (target) {
+      const capabilities = await loadPictureCapabilities()
+      if (ticket !== sequence) return
+      if (!capabilities.privateStorageConfigured) throw new Error('私有图片存储尚未配置，暂不可上传或替换图片')
       const res = await getSpaceVoUsingGet({ id: target })
       if (ticket !== sequence) return
       if (res.code !== 0 || !res.data) throw new Error(res.message || '获取空间失败')

@@ -45,4 +45,6 @@ public class AiPictureController {
     }
     @PostMapping("/out_painting/apply") @AuthCheck
     public BaseResponse<PictureVO> apply(@RequestParam String taskId,HttpServletRequest request){return BaseResponse.success(service.apply(taskId,users.getLoginUser(request),request));}
+    @PostMapping("/out_painting/recover") @AuthCheck
+    public BaseResponse<AiTaskVO> recover(@RequestParam String taskId,HttpServletRequest request){return BaseResponse.success(service.recover(taskId,users.getLoginUser(request),request.getContextPath()));}
 }

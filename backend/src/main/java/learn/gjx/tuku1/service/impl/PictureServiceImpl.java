@@ -11,6 +11,8 @@ import learn.gjx.tuku1.exception.BusinessException;
 import learn.gjx.tuku1.exception.ErrorCode;
 import learn.gjx.tuku1.manager.BingImageSearchManager;
 import learn.gjx.tuku1.manager.FileManager;
+import learn.gjx.tuku1.manager.AiApplyClaim;
+import learn.gjx.tuku1.manager.AiTaskStore;
 import learn.gjx.tuku1.manager.PictureFileCleanupManager;
 import learn.gjx.tuku1.manager.cache.PictureListRevision;
 import learn.gjx.tuku1.manager.cache.PublicPicturePageCache;
@@ -63,6 +65,9 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
 
     @Resource
     private FileManager fileManager;
+
+    @Resource
+    private AiTaskStore aiTaskStore;
 
     @Resource
     private PictureFileCleanupManager pictureFileCleanupManager;
@@ -127,6 +132,17 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
 
     @Override
     public PictureVO uploadPicture(MultipartFile multipartFile, PictureUploadRequest pictureUploadRequest, User loginUser) {
+        return uploadPictureInternal(multipartFile, pictureUploadRequest, loginUser, null);
+    }
+
+    @Override
+    public PictureVO uploadAiPicture(MultipartFile file, PictureUploadRequest input, User user, AiApplyClaim claim) {
+        Objects.requireNonNull(claim, "AI claim");
+        return uploadPictureInternal(file, input, user, claim);
+    }
+
+    private PictureVO uploadPictureInternal(MultipartFile multipartFile, PictureUploadRequest pictureUploadRequest,
+                                            User loginUser, AiApplyClaim claim) {
         // 1. 校验必要参数
         if (loginUser == null) {
             throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
@@ -154,7 +170,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
                     pictureUploadRequest == null ? null : pictureUploadRequest.getCategory(),
                     pictureUploadRequest == null ? null : pictureUploadRequest.getTags(), null, loginUser,
                     pictureUploadRequest == null ? null : pictureUploadRequest.getCollaborationToken(),
-                    pictureUploadRequest == null ? null : pictureUploadRequest.getCollaborationRevision());
+                    pictureUploadRequest == null ? null : pictureUploadRequest.getCollaborationRevision(), claim);
         }
 
         // 2. 上传图片到对象存储
@@ -168,7 +184,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
                 pictureUploadRequest == null ? null : pictureUploadRequest.getTags(),
                 null,
                 false,
-                loginUser);
+                loginUser, claim);
     }
 
     @Override
@@ -298,16 +314,19 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "仅管理员可删除公共图片");
         }
         Boolean removed = transactionTemplate.execute(status -> {
+            Picture current = baseMapper.selectForUpdate(pictureId);
+            if (current == null) return false;
+            if (current.getSpaceId() != null) throw new BusinessException(ErrorCode.OPERATION_ERROR, "图片所属空间已变更");
             boolean result = this.removeById(pictureId);
             if (result) {
                 pictureListRevision.advance();
+                cleanupManagedPictureFiles(current, "delete-picture");
             }
             return result;
         });
         if (!Boolean.TRUE.equals(removed)) {
             throw new BusinessException(ErrorCode.OPERATION_ERROR, "删除失败");
         }
-        cleanupManagedPictureFiles(oldPicture, "delete-picture");
         return true;
     }
 
@@ -325,19 +344,24 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
                 .list();
         int privateRemoved = cleanPrivateDrafts(expireBefore, safeBatchSize - drafts.size());
         if (CollUtil.isEmpty(drafts)) { return privateRemoved; }
-        List<Long> pictureIds = drafts.stream().map(Picture::getId).collect(Collectors.toList());
-        Boolean removed = transactionTemplate.execute(status -> {
-            boolean result = this.removeByIds(pictureIds);
-            if (result) {
-                pictureListRevision.advance();
+        Integer removed = transactionTemplate.execute(status -> {
+            int count = 0;
+            for (Picture candidate : drafts) {
+                Picture current = baseMapper.selectForUpdate(candidate.getId());
+                if (current == null || current.getSpaceId() != null
+                        || !Objects.equals(current.getUploadStatus(), PictureUploadStatusEnum.DRAFT.getValue())
+                        || !current.getCreateTime().before(expireBefore)) continue;
+                if (!this.removeById(current.getId())) throw new BusinessException(ErrorCode.OPERATION_ERROR, "清理图片草稿失败");
+                cleanupManagedPictureFiles(current, "expired-draft");
+                count++;
             }
-            return result;
+            if (count > 0) pictureListRevision.advance();
+            return count;
         });
-        if (!Boolean.TRUE.equals(removed)) {
+        if (removed == null) {
             throw new BusinessException(ErrorCode.OPERATION_ERROR, "清理图片草稿失败");
         }
-        drafts.forEach(picture -> cleanupManagedPictureFiles(picture, "expired-draft"));
-        return drafts.size() + privateRemoved;
+        return removed + privateRemoved;
     }
 
     private int cleanPrivateDrafts(Date expireBefore, int batchSize) {
@@ -375,6 +399,12 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
     private PictureVO persistPrivateUpload(PictureUploadResult uploaded, Picture oldPicture, Long spaceId,
                                             String name, String introduction, String category, List<String> tags,
                                             String sourceUrl, User user, String editToken, Long editRevision) {
+        return persistPrivateUpload(uploaded, oldPicture, spaceId, name, introduction, category, tags, sourceUrl, user, editToken, editRevision, null);
+    }
+
+    private PictureVO persistPrivateUpload(PictureUploadResult uploaded, Picture oldPicture, Long spaceId,
+                                            String name, String introduction, String category, List<String> tags,
+                                            String sourceUrl, User user, String editToken, Long editRevision, AiApplyClaim claim) {
         Picture picture = new Picture();
         org.springframework.beans.BeanUtils.copyProperties(uploaded, picture);
         picture.setSpaceId(spaceId);
@@ -383,7 +413,8 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         picture.setIntroduction(introduction); picture.setCategory(category);
         picture.setTags(tags == null ? null : JSONUtil.toJsonStr(tags));
         picture.setSourceUrl(sourceUrl);
-        Picture saved = editToken == null && editRevision == null ? privatePictureWriteManager.save(picture, oldPicture, user)
+        Picture saved = claim != null ? privatePictureWriteManager.save(picture, oldPicture, user, editToken, editRevision, claim)
+                : editToken == null && editRevision == null ? privatePictureWriteManager.save(picture, oldPicture, user)
                 : privatePictureWriteManager.save(picture, oldPicture, user, editToken, editRevision);
         PictureVO vo = PictureVO.objToVo(saved);
         // Service 自身也不向调用方暴露 COS 地址；Controller 按实际 context path 补齐。
@@ -394,15 +425,30 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
     private PictureVO persistUploadedPicture(PictureUploadResult uploadResult, Picture oldPicture, Long pictureId,
                                              String name, String introduction, String category, List<String> tags,
                                              String sourceUrl, boolean completed, User loginUser) {
+        return persistUploadedPicture(uploadResult, oldPicture, pictureId, name, introduction, category, tags, sourceUrl, completed, loginUser, null);
+    }
+
+    private PictureVO persistUploadedPicture(PictureUploadResult uploadResult, Picture oldPicture, Long pictureId,
+                                             String name, String introduction, String category, List<String> tags,
+                                             String sourceUrl, boolean completed, User loginUser, AiApplyClaim claim) {
         try {
-            PictureVO pictureVO = transactionTemplate.execute(status -> saveUploadedPicture(uploadResult, oldPicture,
-                    pictureId, name, introduction, category, tags, sourceUrl, completed, loginUser));
+            PictureVO pictureVO = transactionTemplate.execute(status -> {
+                Picture current = oldPicture;
+                if (pictureId != null) {
+                    current = baseMapper.selectForUpdate(pictureId);
+                    if (current == null || !Objects.equals(current.getUrl(), oldPicture.getUrl())
+                            || !Objects.equals(current.getOriginalUrl(), oldPicture.getOriginalUrl()))
+                        throw new BusinessException(ErrorCode.OPERATION_ERROR, "图片已变更，请刷新后重试");
+                    pictureAccessManager.checkEdit(current, loginUser);
+                }
+                if (claim != null) aiTaskStore.commitApply(claim, current, loginUser.getId());
+                pictureFileCleanupManager.adopt(Arrays.asList(uploadResult.getOriginalUrl(), uploadResult.getUrl(), uploadResult.getThumbnailUrl()));
+                PictureVO saved = saveUploadedPicture(uploadResult, current, pictureId, name, introduction, category, tags, sourceUrl, completed, loginUser);
+                if (current != null) cleanupManagedPictureFiles(current, "replace-picture", uploadResult.getOriginalUrl(), uploadResult.getUrl(), uploadResult.getThumbnailUrl());
+                return saved;
+            });
             if (pictureVO == null) {
                 throw new BusinessException(ErrorCode.OPERATION_ERROR, "保存图片失败");
-            }
-            if (oldPicture != null) {
-                cleanupManagedPictureFiles(oldPicture, "replace-picture",
-                        uploadResult.getOriginalUrl(), uploadResult.getUrl(), uploadResult.getThumbnailUrl());
             }
             return pictureVO;
         } catch (RuntimeException e) {
@@ -948,11 +994,11 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         Set<String> retained = Arrays.stream(retainedUrls == null ? new String[0] : retainedUrls)
                 .filter(StrUtil::isNotBlank)
                 .collect(Collectors.toSet());
-        Stream.of(picture.getOriginalUrl(), picture.getUrl(), picture.getThumbnailUrl())
+        pictureFileCleanupManager.enqueueCommitted(Stream.of(picture.getOriginalUrl(), picture.getUrl(), picture.getThumbnailUrl())
                 .filter(StrUtil::isNotBlank)
                 .distinct()
                 .filter(url -> !retained.contains(url))
-                .forEach(url -> pictureFileCleanupManager.deleteQuietly(url, scene));
+                .collect(Collectors.toList()));
     }
 
     private void cleanupUploadedPictureFiles(PictureUploadResult uploadResult, String scene) {

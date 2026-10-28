@@ -6,6 +6,9 @@ import { getPictureVoByIdUsingGet } from '@/service/api/pictureController'
 import { searchPictureByPictureUsingPost } from '@/service/api/pictureSearchController'
 
 vi.mock('@/service/api/pictureController', () => ({ getPictureVoByIdUsingGet: vi.fn() }))
+vi.mock('@/composables/usePictureCapabilities', () => ({
+  loadPictureCapabilities: async () => ({ privateStorageConfigured: true, externalImageSearchEnabled: true }),
+}))
 vi.mock('@/service/api/pictureSearchController', () => ({
   searchPictureByPictureUsingPost: vi.fn(),
 }))

@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class AiTaskStoreTest {
     private AiTaskStore store; private JdbcTemplate jdbc; private AiEditingProperties config; private String schema;
+    private TransactionTemplate tx;
     private static final String MYSQL = System.getenv("MYSQL_TEST_SERVER_URL");
     private Connection admin() throws Exception { return DriverManager.getConnection(MYSQL,System.getenv().getOrDefault("MYSQL_TEST_USERNAME","root"),System.getenv().getOrDefault("MYSQL_TEST_PASSWORD","")); }
     @BeforeEach void setup()throws Exception {
@@ -40,7 +41,8 @@ class AiTaskStoreTest {
         if(!mysql)sql=sql.replace("ENGINE=InnoDB","").replace("DEFAULT CHARSET=utf8mb4","");
         ResourceDatabasePopulator populator=new ResourceDatabasePopulator(new ByteArrayResource(sql.getBytes(StandardCharsets.UTF_8)));
         populator.execute(ds);populator.execute(ds); // Migration is repeatable.
-        store=new AiTaskStore(jdbc,new TransactionTemplate(new DataSourceTransactionManager(ds)),config);
+        tx=new TransactionTemplate(new DataSourceTransactionManager(ds));
+        store=new AiTaskStore(jdbc,tx,config);
     }
     @AfterEach void cleanup()throws Exception {if(schema!=null){try(Connection c=admin();Statement s=c.createStatement()){s.execute("DROP DATABASE `"+schema+"`");}schema=null;}}
     private AiPictureTask task(long user) {
@@ -51,6 +53,39 @@ class AiTaskStoreTest {
         AiPictureTask first=task(1);store.reserve(first);AiPictureTask retry=task(1);retry.setRequestId(first.getRequestId());
         assertEquals(first.getId(),store.reserve(retry).getId());assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM ai_picture_task",Integer.class));
         retry.setXScale(3d);assertThrows(BusinessException.class,()->store.reserve(retry));
+    }
+
+    private AiPictureTask succeeded() {
+        AiPictureTask t=task(1);store.reserve(t);store.claimGeneration(t.getId(),new Date());store.completed(t.getId(),"https://result.invalid/image.png");return store.find(t.getId(),1L);
+    }
+    private learn.gjx.tuku1.model.entity.Picture original(AiPictureTask t) {
+        learn.gjx.tuku1.model.entity.Picture p=new learn.gjx.tuku1.model.entity.Picture();p.setId(t.getPictureId());p.setUrl(t.getSourceUrl());return p;
+    }
+    @Test void applyCrashRecoversWithoutGenerationAndOldClaimCannotCommit() {
+        AiPictureTask t=succeeded();AiApplyClaim old=store.beginApply(t,1L);
+        store.expireStale(new Date(System.currentTimeMillis()+301000));
+        AiPictureTask uncertain=store.find(t.getId(),1L);assertEquals("APPLY_UNKNOWN",uncertain.getStatus());
+        assertTrue(store.recoverApply(uncertain));assertNull(store.nextQueued());
+        AiApplyClaim next=store.beginApply(store.find(t.getId(),1L),1L);
+        assertThrows(BusinessException.class,()->tx.execute(s->{store.commitApply(old,original(t),1L);return null;}));
+        store.applyUncertain(old);assertEquals("APPLYING",store.find(t.getId(),1L).getStatus());
+        tx.execute(s->{store.commitApply(next,original(t),1L);return null;});
+        store.applyUncertain(next);assertEquals("APPLIED",store.find(t.getId(),1L).getStatus());
+    }
+    @Test void appliedStatusRollsBackWithPictureTransactionAndCannotBeForged() {
+        AiPictureTask t=succeeded();AiApplyClaim claim=store.beginApply(t,1L);
+        assertThrows(IllegalStateException.class,()->store.commitApply(claim,original(t),1L));
+        tx.execute(s->{store.commitApply(claim,original(t),1L);s.setRollbackOnly();return null;});
+        assertEquals("APPLYING",store.find(t.getId(),1L).getStatus());
+        assertThrows(BusinessException.class,()->tx.execute(s->{store.commitApply(claim,original(t),2L);return null;}));
+        learn.gjx.tuku1.model.entity.Picture replaced=original(t);replaced.setUrl("different");
+        assertThrows(BusinessException.class,()->tx.execute(s->{store.commitApply(claim,replaced,1L);return null;}));
+    }
+    @Test void legacyUncertainApplyCannotBeRetriedAndExpiredResultCannotBeClaimed() {
+        AiPictureTask t=succeeded();store.transition(t.getId(),"SUCCEEDED","APPLY_UNKNOWN","legacy");
+        assertFalse(store.recoverApply(store.find(t.getId(),1L)));
+        store.transition(t.getId(),"APPLY_UNKNOWN","SUCCEEDED",null);jdbc.update("UPDATE ai_picture_task SET expiresAt=? WHERE id=?",new Date(0),t.getId());
+        assertThrows(BusinessException.class,()->store.beginApply(t,1L));
     }
     @Test void taskOwnershipAndStatusCAS(){
         AiPictureTask t=task(1);store.reserve(t);assertNull(store.find(t.getId(),2L));

@@ -40,6 +40,9 @@ public interface PictureService extends IService<Picture> {
      */
     PictureVO uploadPicture(MultipartFile multipartFile, PictureUploadRequest pictureUploadRequest, User loginUser);
 
+    PictureVO uploadAiPicture(MultipartFile file, PictureUploadRequest input, User user,
+                             learn.gjx.tuku1.manager.AiApplyClaim claim);
+
     /**
      * 通过 URL 导入或替换图片，并同步保存元数据。
      */

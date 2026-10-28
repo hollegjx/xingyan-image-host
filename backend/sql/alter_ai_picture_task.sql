@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS ai_picture_task (
     outputWidth int DEFAULT NULL,
     outputHeight int DEFAULT NULL,
     status varchar(24) NOT NULL,
+    applyToken varchar(36) DEFAULT NULL,
     resultUrl varchar(2048) DEFAULT NULL,
     message varchar(200) DEFAULT NULL,
     createTime datetime NOT NULL,

@@ -25,6 +25,7 @@
         message="仅支持已审核通过的公开图片"
         description="私人图片、草稿和待审核图片不会发送给第三方。"
       />
+      <a-alert v-else-if="!externalEnabled" type="info" show-icon message="外部以图搜图尚未启用，请等待管理员完成服务配置与验收。" />
       <template v-else>
         <a-alert
           type="info"
@@ -77,6 +78,8 @@ import { getPictureVoByIdUsingGet } from '@/service/api/pictureController'
 import { searchPictureByPictureUsingPost } from '@/service/api/pictureSearchController'
 import { canSearchPublicPicture, safeImageSearchResults } from '@/utils/imageSearch'
 import { parseId, sameId } from '@/utils/space'
+import { loadPictureCapabilities } from '@/composables/usePictureCapabilities'
+const externalEnabled = ref(false)
 
 const route = useRoute()
 const picture = ref<API.PictureVO>({})
@@ -111,6 +114,9 @@ const loadPicture = async () => {
     if (response.code !== 0 || !response.data || !sameId(response.data.id, id))
       throw new Error(response.message || '读取图片失败')
     picture.value = response.data
+    const capabilities = await loadPictureCapabilities()
+    if (ticket !== sequence) return
+    externalEnabled.value = capabilities.externalImageSearchEnabled
   } catch (error) {
     if (ticket === sequence)
       loadError.value = error instanceof Error ? error.message : '读取图片失败'
@@ -120,7 +126,7 @@ const loadPicture = async () => {
 }
 
 const runSearch = async () => {
-  if (!consent.value || !searchable.value || searching.value) return
+  if (!externalEnabled.value || !consent.value || !searchable.value || searching.value) return
   const ticket = sequence
   const id = parseId(picture.value.id)
   if (!id) return

@@ -19,10 +19,12 @@ async function setup(page: Page, options: { disabled?: boolean; failed?: boolean
       if (!options.sourceDenied) return r.fulfill({ body: Buffer.from(png, 'base64'), contentType: 'application/octet-stream' })
       code = 40101; message = '无权读取'
     } else if (path === '/api/picture/upload') data = { ...picture, url: '/fixture-edit.png?edited=1' }
+    else if (path === '/api/picture/capabilities') data = { privateStorageConfigured: true, externalImageSearchEnabled: true }
     else if (path.endsWith('/capabilities')) data = { enabled: !options.disabled, privateEnabled: true }
     else if (path.endsWith('/latest')) data = current ? { id: taskId, status: current, pictureId: picture.id } : undefined
     else if (path.endsWith('/create_task')) { current = 'QUEUED'; data = { id: taskId, status: current, pictureId: picture.id } }
-    else if (path.endsWith('/get_task')) { queries++; current = options.failed ? 'FAILED' : current === 'APPLIED' ? 'APPLIED' : 'SUCCEEDED'; data = { id: taskId, status: current, pictureId: picture.id, resultUrl: current === 'SUCCEEDED' ? `/api/picture/out_painting/result?taskId=${taskId}` : undefined } }
+    else if (path.endsWith('/get_task')) { queries++; current = options.failed ? 'FAILED' : current === 'APPLIED' || current === 'APPLYING' ? 'APPLIED' : 'SUCCEEDED'; data = { id: taskId, status: current, pictureId: picture.id, resultUrl: current === 'SUCCEEDED' ? `/api/picture/out_painting/result?taskId=${taskId}` : undefined } }
+    else if (path.endsWith('/recover')) { current = 'SUCCEEDED'; data = { id: taskId, status: current, pictureId: picture.id, resultUrl: `/api/picture/out_painting/result?taskId=${taskId}` } }
     else if (path.endsWith('/result')) return r.fulfill({ body: Buffer.from(png, 'base64'), contentType: 'application/octet-stream' })
     else if (path.endsWith('/apply')) { current = 'APPLIED'; data = { ...picture, url: '/fixture-edit.png?applied=1' } }
     await r.fulfill({ json: { code, data, message } })
@@ -98,4 +100,22 @@ test('crop input authorization errors are visible and cannot upload', async ({ p
   await expect(page.getByText('无权读取')).toBeVisible()
   await expect(page.getByRole('button', { name: '保存并替换' })).toHaveCount(0)
   expect(state.calls.filter(c => c.path === '/api/picture/upload')).toHaveLength(0)
+})
+
+test('reopened APPLYING task polls to APPLIED without resubmitting', async ({ page }) => {
+  const state = await setup(page, { latest: 'APPLYING' })
+  await page.getByRole('button', { name: 'AI 扩图', exact: true }).click()
+  await expect(page.getByRole('dialog').getByText('已应用', { exact: true })).toBeVisible({ timeout: 10000 })
+  expect(state.queries).toBeGreaterThan(0)
+  expect(state.calls.filter(c => c.path.endsWith('/apply') || c.path.endsWith('/create_task'))).toHaveLength(0)
+})
+test('uncertain apply can recover saved result without generating again', async ({ page }, info) => {
+  const state = await setup(page, { latest: 'APPLY_UNKNOWN' })
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.getByRole('button', { name: 'AI 扩图', exact: true }).click()
+  await page.getByRole('button', { name: '核对并恢复已有结果' }).click()
+  await expect(page.getByRole('img', { name: '扩图结果', exact: true })).toBeVisible()
+  await page.screenshot({ path: info.outputPath('ai-recovery-mobile.png') })
+  expect(state.calls.filter(c => c.path.endsWith('/recover'))).toHaveLength(1)
+  expect(state.calls.filter(c => c.path.endsWith('/apply') || c.path.endsWith('/create_task'))).toHaveLength(0)
 })

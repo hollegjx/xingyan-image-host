@@ -57,7 +57,11 @@ public class AiPictureService {
         // The committed queue row is the work item; no paid I/O on the HTTP request thread.
         return view(store.reserve(task),context);
     }
-    public AiTaskVO latest(Long pictureId,User user,String context){editable(pictureId,user);return view(store.latest(pictureId,user.getId()),context);}
+    public AiTaskVO latest(Long pictureId,User user,String context){
+        editable(pictureId,user);AiPictureTask task=store.latest(pictureId,user.getId());
+        if(task!=null){store.expireStale(task.getId(),new Date());task=store.find(task.getId(),user.getId());}
+        return view(task,context);
+    }
     private AiPictureTask owned(String id,User user) {
         require(id!=null && id.matches("[0-9a-fA-F-]{36}"),"任务 ID 无效");
         AiPictureTask task=store.find(id,user.getId());
@@ -80,22 +84,43 @@ public class AiPictureService {
         require(Objects.equals(task.getSourceUrl(),picture.getUrl()),"原图已被替换，请刷新后重新生成");
         // Validate/download before claiming: retrying these read-only steps is safe.
         org.springframework.web.multipart.MultipartFile file=files.uploadFile(files.result(task.getResultUrl()));
-        require(store.transition(id,"SUCCEEDED","APPLYING","正在保存；网络中断后请先刷新查询，不要重复提交"),"结果正在保存，请刷新查询");
+        AiApplyClaim claim=store.beginApply(task,user.getId());
         PictureUploadRequest upload=new PictureUploadRequest();upload.setId(picture.getId());upload.setSpaceId(picture.getSpaceId());
         upload.setName(picture.getName());upload.setIntroduction(picture.getIntroduction());upload.setCategory(picture.getCategory());
         if(picture.getTags()!=null)upload.setTags(JSONUtil.toList(picture.getTags(),String.class));
         try {
-            uploads.uploadPicture(file,upload,user);
-            store.transition(id,"APPLYING","APPLIED","结果已应用");
+            uploads.uploadAiPicture(file,upload,user,claim);
             return uploads.getPictureVO(editable(picture.getId(),user),request);
         } catch(RuntimeException e) {
-            store.transition(id,"APPLYING","APPLY_UNKNOWN","保存未确认，请刷新图片并联系管理员核对，不要重复应用");
+            store.applyUncertain(claim);
             throw new BusinessException(ErrorCode.OPERATION_ERROR,"保存未确认，请刷新检查图片后再处理");
         }
+    }
+
+    /** Reconcile persisted evidence only. This endpoint never calls generation. */
+    public AiTaskVO recover(String id,User user,String context) {
+        owned(id,user);store.expireStale(id,new Date());AiPictureTask task=owned(id,user);
+        if("APPLIED".equals(task.getStatus()) || "SUCCEEDED".equals(task.getStatus()))return view(task,context);
+        require(task.getExpiresAt().after(new Date()),"结果已过期，请联系管理员核对原任务");
+        require(Objects.equals(task.getSourceUrl(),editable(task.getPictureId(),user).getUrl()),"原图已变更，不能恢复覆盖");
+        if("APPLY_UNKNOWN".equals(task.getStatus())) {
+            require(task.getApplyToken()!=null,"旧版本任务没有原子提交凭据，请联系管理员核对，不能自动重试");
+            require(store.recoverApply(task),"任务状态已变化，请刷新查询");
+        } else {
+            require("UNKNOWN".equals(task.getStatus()) && task.getResultUrl()!=null
+                    && task.getProviderRequestId()!=null && AliyunOutpaintingClient.MODEL.equals(task.getProviderModel()),
+                    "没有可核验的生成回执，请联系管理员核对；不会重新生成");
+            files.uploadFile(files.result(task.getResultUrl()));
+            require(store.recoverReceipt(task),"任务状态已变化，请刷新查询");
+        }
+        return view(store.find(id,user.getId()),context);
     }
     private AiTaskVO view(AiPictureTask task,String context) {
         if(task==null)return null;AiTaskVO vo=new AiTaskVO();vo.setId(task.getId());vo.setPictureId(task.getPictureId());
         vo.setStatus(task.getStatus());vo.setMessage(task.getMessage());vo.setCreateTime(task.getCreateTime());vo.setExpiresAt(task.getExpiresAt());
+        if(Arrays.asList("UNKNOWN","APPLY_UNKNOWN").contains(task.getStatus()) && !task.getExpiresAt().after(new Date())) {
+            vo.setStatus("EXPIRED");vo.setMessage("本地跟踪已到期，原任务结果仍未确认；重新生成属于新任务，可能再次计费。原记录保留供管理员核对。");
+        }
         if("SUCCEEDED".equals(task.getStatus())) {
             if(task.getExpiresAt().before(new Date())) {vo.setStatus("EXPIRED");vo.setMessage("结果已过期");}
             else vo.setResultUrl(context+"/picture/out_painting/result?taskId="+task.getId());

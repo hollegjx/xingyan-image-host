@@ -67,13 +67,17 @@ public class AiEditingFiles {
         if(!transfers.tryAcquire()) throw new BusinessException(ErrorCode.OPERATION_ERROR,"图片读取繁忙，请稍后重试");
         HttpURLConnection c=null;
         try {
-            c=(HttpURLConnection)new URL(url).openConnection();
+            c=openResultConnection(url);
             c.setInstanceFollowRedirects(false); c.setConnectTimeout(3000); c.setReadTimeout(8000); c.setUseCaches(false);
             if (c.getResponseCode()!=200) throw new IOException();
             try(InputStream in=c.getInputStream()) { return AliyunOutpaintingClient.readLimited(in,10*1024*1024); }
         } catch(IOException e) { throw new BusinessException(ErrorCode.OPERATION_ERROR,"AI 结果读取失败或已过期，请稍后重试查询"); }
         finally { if(c!=null)c.disconnect(); transfers.release(); }
     }
+    protected HttpURLConnection openResultConnection(String validatedUrl) throws IOException {
+        return (HttpURLConnection)new URL(validatedUrl).openConnection();
+    }
+
     /** PNG/JPEG only; inspect dimensions before allocating pixels, then fit the existing 2 MB upload limit. */
     public MultipartFile uploadFile(byte[] bytes) {
         if(!decoders.tryAcquire()) throw new BusinessException(ErrorCode.OPERATION_ERROR,"图片处理繁忙，请稍后重试");

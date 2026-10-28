@@ -44,6 +44,7 @@ async function setup(page: Page, options: { multiple?: boolean; failure?: boolea
   await page.route('**/api/**', async (route) => {
     const url = new URL(route.request().url())
     const path = url.pathname
+    if (path === '/api/picture/capabilities') return route.fulfill({ json: { code: 0, data: { privateStorageConfigured: true, externalImageSearchEnabled: true } } })
     const body = route.request().headers()['content-type']?.includes('application/json')
       ? route.request().postDataJSON()
       : {}

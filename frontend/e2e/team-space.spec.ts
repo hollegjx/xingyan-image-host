@@ -52,6 +52,7 @@ async function mockTeam(page: Page, role = 'admin', failAdd = false) {
   ]
   await page.route('**/api/**', async (route) => {
     const path = new URL(route.request().url()).pathname
+    if (path === '/api/picture/capabilities') return route.fulfill({ json: { code: 0, data: { privateStorageConfigured: true, externalImageSearchEnabled: true } } })
     const body = route.request().postData() ? route.request().postDataJSON() : {}
     calls.push({ path, body })
     let data: unknown = {},
