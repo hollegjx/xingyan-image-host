@@ -80,7 +80,11 @@ public class PictureFileCleanupManager {
                     List<Map<String,Object>> rows = jdbc.queryForList("SELECT url,attempts,nextAttemptTime FROM public_file_cleanup WHERE id=? FOR UPDATE", id);
                     if (rows.isEmpty()) return null;
                     Map<String,Object> row = rows.get(0);
-                    if (((Date) row.get("nextAttemptTime")).after(new Date())) return null;
+                    Object nextAttemptTime = row.get("nextAttemptTime");
+                    Date nextAttempt = nextAttemptTime instanceof java.time.LocalDateTime
+                            ? java.sql.Timestamp.valueOf((java.time.LocalDateTime) nextAttemptTime)
+                            : (Date) nextAttemptTime;
+                    if (nextAttempt.after(new Date())) return null;
                     String url = (String) row.get("url");
                     // Also protects successful commits whose response was lost.
                     Long refs = jdbc.queryForObject("SELECT COUNT(*) FROM picture WHERE isDelete=0 AND (url=? OR originalUrl=? OR thumbnailUrl=?)", Long.class, url, url, url);

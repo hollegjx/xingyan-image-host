@@ -42,6 +42,23 @@ class PictureFileCleanupManagerTest {
     private int count() { return jdbc.queryForObject("SELECT COUNT(*) FROM public_file_cleanup",Integer.class); }
     private void due() { jdbc.update("UPDATE public_file_cleanup SET nextAttemptTime=?",new Date(0)); }
 
+    @Test void localDateTimeFromMysqlRowDoesNotBlockCleanup() {
+        manager.deleteQuietly(url, "test");
+        due();
+        String id = jdbc.queryForObject("SELECT id FROM public_file_cleanup", String.class);
+        JdbcTemplate mysqlRows = spy(jdbc);
+        doReturn(Collections.singletonList(Map.of("url", url, "attempts", 0,
+                "nextAttemptTime", java.time.LocalDateTime.of(2000, 1, 1, 0, 0))))
+                .when(mysqlRows).queryForList(
+                        "SELECT url,attempts,nextAttemptTime FROM public_file_cleanup WHERE id=? FOR UPDATE", id);
+        ReflectionTestUtils.setField(manager, "jdbc", mysqlRows);
+
+        manager.retryFailedDeletes();
+
+        assertEquals(0, count());
+        verify(cos).deleteObject("public/1/file.jpg");
+    }
+
     @Test
     void shouldRetryTransientCosDeleteFailure() {
         doThrow(new IllegalStateException("temporary failure"))
