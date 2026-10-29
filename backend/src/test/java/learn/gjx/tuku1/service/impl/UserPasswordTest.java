@@ -16,6 +16,10 @@ class UserPasswordTest {
     private final String password = "fixture-password-73";
     private UserServiceImpl service = spy(new UserServiceImpl());
 
+    @org.junit.jupiter.api.BeforeEach void setupLimiter() {
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "loginAttemptLimiter", mock(learn.gjx.tuku1.security.LoginAttemptLimiter.class));
+    }
+
     @Test void registrationCreatesBcryptAndCanLogin() {
         AtomicReference<User> saved = new AtomicReference<>();
         doReturn(0L).when(service).count(any());
@@ -77,6 +81,37 @@ class UserPasswordTest {
     @Test void newPasswordRulesRejectEmptyShortAndOverlongUtf8() {
         for (String value : new String[]{"", "short", String.join("", java.util.Collections.nCopies(25, "密"))})
             assertThrows(BusinessException.class, () -> UserPasswords.hash(value));
+    }
+
+    @Test void throttledLoginDoesNotQueryDatabase() {
+        learn.gjx.tuku1.security.LoginAttemptLimiter limiter = mock(learn.gjx.tuku1.security.LoginAttemptLimiter.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "loginAttemptLimiter", limiter);
+        doThrow(learn.gjx.tuku1.security.LoginAttemptLimiter.rejected()).when(limiter).check(any(), any());
+        assertThrows(BusinessException.class, () -> service.userLogin("fixture-account", password, new MockHttpServletRequest()));
+        verify(service, never()).getOne(any());
+    }
+
+    @Test void unknownAndKnownAccountsHaveSameFailureAndBothIncrement() {
+        learn.gjx.tuku1.security.LoginAttemptLimiter limiter = mock(learn.gjx.tuku1.security.LoginAttemptLimiter.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "loginAttemptLimiter", limiter);
+        doReturn(null).when(service).getOne(any());
+        BusinessException absent = assertThrows(BusinessException.class,
+                () -> service.userLogin("fixture-account", "wrong-fixture", new MockHttpServletRequest()));
+        doReturn(legacy(password)).when(service).getOne(any());
+        BusinessException wrong = assertThrows(BusinessException.class,
+                () -> service.userLogin("fixture-account", "wrong-fixture", new MockHttpServletRequest()));
+        assertEquals(absent.getCode(), wrong.getCode()); assertEquals(absent.getMessage(), wrong.getMessage());
+        verify(limiter, times(2)).failed(any(), any());
+        verify(limiter, never()).succeeded(any(), any());
+    }
+
+    @Test void successfulLoginClearsCountersBeforeCreatingSession() {
+        learn.gjx.tuku1.security.LoginAttemptLimiter limiter = mock(learn.gjx.tuku1.security.LoginAttemptLimiter.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "loginAttemptLimiter", limiter);
+        User user = new User(); user.setId(1L); user.setUserPassword(service.getEncrptPassword(password));
+        doReturn(user).when(service).getOne(any());
+        service.userLogin("fixture-account", password, new MockHttpServletRequest());
+        verify(limiter).succeeded(any(), any());
     }
 
     private User legacy(String raw) {

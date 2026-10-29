@@ -21,6 +21,7 @@ class UserSessionTest {
     @BeforeEach
     void setUp() {
         service = spy(new UserServiceImpl());
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "loginAttemptLimiter", mock(learn.gjx.tuku1.security.LoginAttemptLimiter.class));
         request = new MockHttpServletRequest();
     }
 

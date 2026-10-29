@@ -311,6 +311,10 @@ class RedisSessionIntegrationTest {
             SessionCollaborationAccess.class, CollaborationQueue.class, PictureWebSocket.class,
             CollaborationWebSocketConfig.class, PictureAccessManager.class})
     static class SessionTestApplication {
+        @Bean learn.gjx.tuku1.security.LoginAttemptLimiter loginAttemptLimiter(org.springframework.data.redis.core.StringRedisTemplate redis) {
+            return new learn.gjx.tuku1.security.LoginAttemptLimiter(redis, 5, 20, 900);
+        }
+
         @Bean
         UserMapper userMapper() {
             UserMapper mapper = mock(UserMapper.class);
@@ -340,6 +344,7 @@ class RedisSessionIntegrationTest {
             user.setUserRole(0);
             user.setIsDelete(0);
             UserServiceImpl service = spy(new UserServiceImpl());
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "loginAttemptLimiter", mock(learn.gjx.tuku1.security.LoginAttemptLimiter.class));
             user.setUserPassword(service.getEncrptPassword("password123"));
             doReturn(user).when(service).getOne(any());
             doReturn(user).when(service).getById(42L);

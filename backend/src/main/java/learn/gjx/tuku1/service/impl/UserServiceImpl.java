@@ -3,6 +3,8 @@ package learn.gjx.tuku1.service.impl;
 import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
 import learn.gjx.tuku1.security.UserPasswords;
+import learn.gjx.tuku1.security.LoginAttemptLimiter;
+import javax.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
@@ -38,6 +40,9 @@ import java.util.stream.Collectors;
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
 
 
+
+    @Resource
+    private LoginAttemptLimiter loginAttemptLimiter;
 
     @Override
     public long userRegister(String username, String password, String confirmPassword) {
@@ -80,22 +85,19 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     @Override
     public LoginUserVO userLogin(String username, String password, HttpServletRequest request) {
-        if (StrUtil.hasBlank(username, password)) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "参数不能为空");
-        }
-        if (username.length() < 4) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "账号长度不能小于4位");
-        }
-        if (password.length() < 6) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "密码长度不能小于6位");
+        String ip = request.getRemoteAddr();
+        loginAttemptLimiter.check(username, ip);
+        if (StrUtil.hasBlank(username, password) || username.length() < 4 || password.length() < 6) {
+            loginAttemptLimiter.failed(username, ip);
+            throw LoginAttemptLimiter.rejected();
         }
 
         LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(User::getUserAccount, username);
         User user = this.getOne(queryWrapper);
         if (user == null || !UserPasswords.matches(password, user.getUserPassword())) {
-            log.warn("登录凭据校验失败");
-            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "账号或密码错误，请稍后重试");
+            loginAttemptLimiter.failed(username, ip);
+            throw LoginAttemptLimiter.rejected();
         }
         if (UserPasswords.isLegacy(user.getUserPassword())) {
             String oldHash = user.getUserPassword();
@@ -114,6 +116,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 user.setUserPassword(upgraded);
             }
         }
+
+        loginAttemptLimiter.succeeded(username, ip);
 
         // 脱敏后的登录用户信息
         LoginUserVO loginUserVO = userLogin(user);
