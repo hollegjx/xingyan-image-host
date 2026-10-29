@@ -74,6 +74,8 @@ picture:
     # Enables authorized private reads/writes and persistent cleanup (not batch import/processing).
     enabled: ${PICTURE_PRIVATE_STORAGE_ENABLED:false}
     bucket: ${PICTURE_PRIVATE_STORAGE_BUCKET:}
+    # Opt in only after global acceleration is enabled on this private bucket.
+    accelerate-enabled: ${PICTURE_PRIVATE_STORAGE_ACCELERATE_ENABLED:false}
     cleanup-delay-ms: 60000
   derivative:
     enabled: true

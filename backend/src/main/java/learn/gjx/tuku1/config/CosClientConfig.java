@@ -8,6 +8,7 @@ import com.qcloud.cos.endpoint.EndpointBuilder;
 import com.qcloud.cos.endpoint.SuffixEndpointBuilder;
 import com.qcloud.cos.region.Region;
 import lombok.Data;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -31,24 +32,35 @@ public class CosClientConfig {
     /** Requires global acceleration to be enabled on the public bucket first. */
     private boolean accelerateEnabled = false;
 
+    @Value("${picture.private-storage.bucket:}")
+    private String privateStorageBucket = "";
+
+    @Value("${picture.private-storage.accelerate-enabled:false}")
+    private boolean privateStorageAccelerateEnabled = false;
+
     @Bean
     public COSClient cosClient() {
         COSCredentials cred = new BasicCOSCredentials(secretId, secretKey);
         ClientConfig clientConfig = new ClientConfig(new Region(region));
         clientConfig.setHttpProtocol(com.qcloud.cos.http.HttpProtocol.https);
-        if (accelerateEnabled) {
-            if (bucket == null || bucket.trim().isEmpty()) {
+        if (accelerateEnabled || privateStorageAccelerateEnabled) {
+            if (accelerateEnabled && (bucket == null || bucket.trim().isEmpty())) {
                 throw new IllegalArgumentException("COS public bucket is required for acceleration");
             }
+            if (privateStorageAccelerateEnabled
+                    && (privateStorageBucket == null || privateStorageBucket.trim().isEmpty())) {
+                throw new IllegalArgumentException("COS private bucket is required for acceleration");
+            }
             final String publicBucket = bucket;
+            final String privateBucket = privateStorageBucket;
             final EndpointBuilder regional = clientConfig.getEndpointBuilder();
             final EndpointBuilder accelerated = new SuffixEndpointBuilder("cos.accelerate.myqcloud.com");
-            // The shared client also serves private storage. Never route another bucket
-            // through the public bucket's endpoint or opt it into acceleration implicitly.
+            // Each bucket requires its own explicit acceleration opt-in.
             clientConfig.setEndpointBuilder(new EndpointBuilder() {
                 @Override
                 public String buildGeneralApiEndpoint(String bucketName) {
-                    return publicBucket.equals(bucketName)
+                    return (accelerateEnabled && publicBucket.equals(bucketName))
+                            || (privateStorageAccelerateEnabled && privateBucket.equals(bucketName))
                             ? accelerated.buildGeneralApiEndpoint(bucketName)
                             : regional.buildGeneralApiEndpoint(bucketName);
                 }
