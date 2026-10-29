@@ -3,6 +3,10 @@ package learn.gjx.tuku1.service.impl;
 import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
 import learn.gjx.tuku1.security.UserPasswords;
+import learn.gjx.tuku1.security.UserSessionSecurity;
+import learn.gjx.tuku1.model.dto.user.UserProfileUpdateRequest;
+import learn.gjx.tuku1.model.dto.user.UserPasswordUpdateRequest;
+import java.util.Date;
 import learn.gjx.tuku1.security.LoginAttemptLimiter;
 import javax.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
@@ -126,6 +130,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         HttpSession session = request.getSession();
         request.changeSessionId();
         session.setAttribute(UserConstant.USER_LOGIN_STATE, loginUserVO);
+        session.setAttribute(UserSessionSecurity.VERSION, UserSessionSecurity.version(user));
 
         return loginUserVO;
     }
@@ -202,6 +207,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (user.getIsDelete() != null && user.getIsDelete() == 1) {
             throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "用户已被删除");
         }
+
+        UserSessionSecurity.requireCurrent(session.getAttribute(UserSessionSecurity.VERSION), user);
 
         return user;
     }
@@ -330,6 +337,61 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         userVOPage.setRecords(userVOList);
 
         return userVOPage;
+    }
+
+    @Override
+    public LoginUserVO updateMyProfile(UserProfileUpdateRequest update, HttpServletRequest request) {
+        User current = getLoginUser(request);
+        if (update == null || StrUtil.isBlank(update.getUserName()) || update.getUserName().trim().length() > 32
+                || (update.getUserProfile() != null && update.getUserProfile().length() > 128)) {
+            log.warn("本人资料参数不符合长度规则");
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "昵称为1至32位，简介不超过128位");
+        }
+        User patch = new User(); patch.setId(current.getId());
+        patch.setUserName(update.getUserName().trim());
+        patch.setUserProfile(update.getUserProfile() == null ? "" : update.getUserProfile());
+        patch.setEditTime(new Date());
+        if (!this.updateById(patch)) {
+            log.warn("本人资料更新失败");
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "资料保存失败");
+        }
+        current.setUserName(patch.getUserName()); current.setUserProfile(patch.getUserProfile());
+        current.setEditTime(patch.getEditTime());
+        LoginUserVO result = userLogin(current);
+        request.getSession().setAttribute(UserConstant.USER_LOGIN_STATE, result);
+        return result;
+    }
+
+    @Override
+    public boolean updateMyPassword(UserPasswordUpdateRequest update, HttpServletRequest request) {
+        User current = getLoginUser(request);
+        if (update == null) {
+            log.warn("修改密码参数缺失");
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "请求参数不能为空");
+        }
+        UserPasswords.validateNew(update.getNewPassword());
+        if (!update.getNewPassword().equals(update.getCheckPassword())) {
+            log.warn("修改密码确认不一致");
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "两次密码输入不一致");
+        }
+        String ip = request.getRemoteAddr();
+        loginAttemptLimiter.check(current.getUserAccount(), ip);
+        if (!UserPasswords.matches(update.getOldPassword(), current.getUserPassword())) {
+            loginAttemptLimiter.failed(current.getUserAccount(), ip);
+            throw LoginAttemptLimiter.rejected();
+        }
+        User patch = new User(); patch.setUserPassword(UserPasswords.hash(update.getNewPassword()));
+        patch.setEditTime(new Date());
+        if (!this.update(patch, new LambdaQueryWrapper<User>().eq(User::getId, current.getId())
+                .eq(User::getUserPassword, current.getUserPassword()))) {
+            log.warn("修改密码时凭据已被并发更新");
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "密码已变更，请重新登录后重试");
+        }
+        current.setUserPassword(patch.getUserPassword()); current.setEditTime(patch.getEditTime());
+        HttpSession session = request.getSession(); request.changeSessionId();
+        session.setAttribute(UserConstant.USER_LOGIN_STATE, userLogin(current));
+        session.setAttribute(UserSessionSecurity.VERSION, UserSessionSecurity.version(current));
+        return true;
     }
 
     @Override

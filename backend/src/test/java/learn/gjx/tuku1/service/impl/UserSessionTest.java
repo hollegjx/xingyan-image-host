@@ -73,6 +73,8 @@ class UserSessionTest {
         User current = new User();
         current.setId(1L);
         current.setUserRole(0);
+        current.setUserPassword("fixture-hash");
+        request.getSession().setAttribute(learn.gjx.tuku1.security.UserSessionSecurity.VERSION, learn.gjx.tuku1.security.UserSessionSecurity.version(current));
         doReturn(current).when(service).getById(1L);
         assertEquals(0, service.getLoginUser(request).getUserRole());
         verify(service).getById(1L);

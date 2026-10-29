@@ -2,6 +2,7 @@ package learn.gjx.tuku1.infrastructure.collaboration;
 
 import learn.gjx.tuku1.application.collaboration.CollaborationAccess;
 import learn.gjx.tuku1.constant.UserConstant;
+import learn.gjx.tuku1.security.UserSessionSecurity;
 import learn.gjx.tuku1.exception.*;
 import learn.gjx.tuku1.manager.space.PictureAccessManager;
 import learn.gjx.tuku1.mapper.*;
@@ -31,6 +32,7 @@ public class SessionCollaborationAccess implements CollaborationAccess {
             throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR, "登录已失效");
         User user = users.selectById(userId);
         PictureAccessManager.requireActiveUser(user);
+        UserSessionSecurity.requireCurrent(session.getAttribute(UserSessionSecurity.VERSION), user);
         Picture picture = pictures.selectById(pictureId);
         if (picture == null || picture.getSpaceId() == null)
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "仅团队图片支持协同编辑");

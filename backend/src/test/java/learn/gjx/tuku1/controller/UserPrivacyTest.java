@@ -60,9 +60,10 @@ class UserPrivacyTest {
         MockHttpSession session = new MockHttpSession();
         if (role >= 0) {
             User actor = new User(); actor.setId(99L); actor.setUserRole(role);
-            actor.setUserAccount("self-fixture");
+            actor.setUserAccount("self-fixture"); actor.setUserPassword("fixture-hash");
             doReturn(actor).when(service).getById(99L);
             session.setAttribute(UserConstant.USER_LOGIN_STATE, service.userLogin(actor));
+            session.setAttribute(learn.gjx.tuku1.security.UserSessionSecurity.VERSION, learn.gjx.tuku1.security.UserSessionSecurity.version(actor));
         }
         return session;
     }
@@ -74,6 +75,31 @@ class UserPrivacyTest {
         assertTrue(node.has("userName"));
         assertFalse(node.has("userAccount")); assertFalse(node.has("userRole"));
         assertFalse(node.has("userPassword"));
+    }
+
+    @ParameterizedTest @ValueSource(ints = {-1, 0, 1})
+    void selfProfileOnlyUpdatesAuthenticatedIdentityAndWhitelistedFields(int role) throws Exception {
+        doReturn(true).when(service).updateById(any(User.class));
+        JsonNode response = body(post("/user/update/my").session(identity(role)).contentType("application/json")
+                .content("{\"userName\":\"new name\",\"userProfile\":\"bio\",\"id\":7,\"userRole\":1,\"userAccount\":\"forged\",\"userAvatar\":\"forged\"}"));
+        if (role < 0) { assertNotEquals(0, response.path("code").asInt()); verify(service, never()).updateById(any(User.class)); }
+        else {
+            assertEquals(0, response.path("code").asInt());
+            org.mockito.ArgumentCaptor<User> patch = org.mockito.ArgumentCaptor.forClass(User.class);
+            verify(service).updateById(patch.capture());
+            assertEquals(99L, patch.getValue().getId()); assertEquals("new name", patch.getValue().getUserName());
+            assertNull(patch.getValue().getUserRole()); assertNull(patch.getValue().getUserAccount());
+            assertNull(patch.getValue().getUserPassword()); assertNull(patch.getValue().getUserAvatar());
+        }
+    }
+
+    @ParameterizedTest @ValueSource(ints = {-1, 0, 1})
+    void selfPasswordRequiresAuthenticationAndOldPassword(int role) throws Exception {
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "loginAttemptLimiter", mock(learn.gjx.tuku1.security.LoginAttemptLimiter.class));
+        JsonNode response = body(post("/user/password/update").session(identity(role)).contentType("application/json")
+                .content("{\"oldPassword\":\"incorrect\",\"newPassword\":\"new-fixture\",\"checkPassword\":\"new-fixture\"}"));
+        assertNotEquals(0, response.path("code").asInt());
+        verify(service, never()).update(any(User.class), any());
     }
 
     @ParameterizedTest @ValueSource(ints = {-1, 0, 1})

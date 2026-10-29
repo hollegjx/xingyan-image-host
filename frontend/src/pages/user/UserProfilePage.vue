@@ -52,7 +52,8 @@
           </div>
         </dl>
         <p class="profile-service-note">
-          <LockOutlined /> 当前资料由管理员维护，暂不支持自助修改昵称、头像或密码。
+          <LockOutlined /> 可在设置中修改昵称、简介和密码；头像暂不支持自助修改。
+          <router-link to="/user/settings">前往设置</router-link>
         </p>
       </section>
       <div class="profile-shortcuts">

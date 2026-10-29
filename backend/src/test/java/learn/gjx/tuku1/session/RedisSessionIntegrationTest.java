@@ -107,6 +107,32 @@ class RedisSessionIntegrationTest {
     }
 
     @Test
+    void passwordChangeRevokesOtherRedisAndWebSocketSessions() throws Exception {
+        try (ServletWebServerApplicationContext app = startApplication(namespace())) {
+            String currentCookie = login(app, null).getHeaders().getFirst(HttpHeaders.SET_COOKIE).split(";", 2)[0];
+            String otherCookie = login(app, null).getHeaders().getFirst(HttpHeaders.SET_COOKIE).split(";", 2)[0];
+            UserServiceImpl service = app.getBean(UserServiceImpl.class);
+            User currentUser = service.getById(42L);
+            when(app.getBean(UserMapper.class).selectById(42L)).thenReturn(currentUser);
+            doReturn(true).when(service).update(any(User.class), any());
+            SessionCollaborationAccess access = app.getBean(SessionCollaborationAccess.class);
+            assertNotNull(access.authorize(decodeId(otherCookie), 42L, 55L));
+            java.util.Map<String, String> change = new java.util.HashMap<>();
+            change.put("oldPassword", "password123");
+            change.put("newPassword", "replacement-fixture"); change.put("checkPassword", "replacement-fixture");
+            ResponseEntity<String> response = call(app, HttpMethod.POST, "/password/update", currentCookie, JSON.writeValueAsString(change));
+            assertEquals(0, body(response).path("code").asInt());
+            String refreshed = response.getHeaders().getFirst(HttpHeaders.SET_COOKIE).split(";", 2)[0];
+            assertEquals(0, body(call(app, HttpMethod.GET, "/get/login", refreshed, null)).path("code").asInt());
+            assertEquals(40100, body(call(app, HttpMethod.GET, "/get/login", otherCookie, null)).path("code").asInt());
+            assertThrows(learn.gjx.tuku1.exception.BusinessException.class,
+                    () -> access.authorize(decodeId(otherCookie), 42L, 55L));
+            assertNotNull(access.authorize(decodeId(refreshed), 42L, 55L));
+            assertTrue(learn.gjx.tuku1.security.UserPasswords.matches("replacement-fixture", currentUser.getUserPassword()));
+        }
+    }
+
+    @Test
     void loginSurvivesBackendRestartAndLogoutRevokesIt() throws Exception {
         String namespace = namespace();
         String cookie;
@@ -311,6 +337,7 @@ class RedisSessionIntegrationTest {
             SessionCollaborationAccess.class, CollaborationQueue.class, PictureWebSocket.class,
             CollaborationWebSocketConfig.class, PictureAccessManager.class})
     static class SessionTestApplication {
+        static final String FIXTURE_HASH = learn.gjx.tuku1.security.UserPasswords.hash("password123");
         @Bean learn.gjx.tuku1.security.LoginAttemptLimiter loginAttemptLimiter(org.springframework.data.redis.core.StringRedisTemplate redis) {
             return new learn.gjx.tuku1.security.LoginAttemptLimiter(redis, 5, 20, 900);
         }
@@ -319,6 +346,7 @@ class RedisSessionIntegrationTest {
         UserMapper userMapper() {
             UserMapper mapper = mock(UserMapper.class);
             User u = new User(); u.setId(42L); u.setUserName("Session test user"); u.setUserRole(0); u.setIsDelete(0);
+            u.setUserPassword(FIXTURE_HASH);
             when(mapper.selectById(42L)).thenReturn(u); return mapper;
         }
 
@@ -345,7 +373,7 @@ class RedisSessionIntegrationTest {
             user.setIsDelete(0);
             UserServiceImpl service = spy(new UserServiceImpl());
         org.springframework.test.util.ReflectionTestUtils.setField(service, "loginAttemptLimiter", mock(learn.gjx.tuku1.security.LoginAttemptLimiter.class));
-            user.setUserPassword(service.getEncrptPassword("password123"));
+            user.setUserPassword(FIXTURE_HASH);
             doReturn(user).when(service).getOne(any());
             doReturn(user).when(service).getById(42L);
             return service;

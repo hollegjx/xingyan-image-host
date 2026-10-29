@@ -3,6 +3,8 @@ package learn.gjx.tuku1.service;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import learn.gjx.tuku1.model.dto.user.UserAddRequest;
+import learn.gjx.tuku1.model.dto.user.UserProfileUpdateRequest;
+import learn.gjx.tuku1.model.dto.user.UserPasswordUpdateRequest;
 import learn.gjx.tuku1.model.dto.user.UserQueryRequest;
 import learn.gjx.tuku1.model.dto.user.UserUpdateRequest;
 import learn.gjx.tuku1.model.entity.User;
@@ -118,4 +120,11 @@ public interface UserService extends IService<User> {
      * @return 是否为管理员
      */
     boolean isAdmin(User user);
+
+    /** 修改当前用户昵称和简介。 */
+    LoginUserVO updateMyProfile(UserProfileUpdateRequest update, HttpServletRequest request);
+
+    /** 验证旧密码并更改密码，其他会话的凭据版本随即失效。 */
+    boolean updateMyPassword(UserPasswordUpdateRequest update, HttpServletRequest request);
+
 }

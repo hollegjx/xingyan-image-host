@@ -5,6 +5,8 @@ package learn.gjx.tuku1.controller;
 import learn.gjx.tuku1.annotation.AuthCheck;
 import learn.gjx.tuku1.common.BaseResponse;
 import learn.gjx.tuku1.model.dto.user.UserAddRequest;
+import learn.gjx.tuku1.model.dto.user.UserProfileUpdateRequest;
+import learn.gjx.tuku1.model.dto.user.UserPasswordUpdateRequest;
 import learn.gjx.tuku1.model.dto.user.UserDeleteRequest;
 import learn.gjx.tuku1.model.dto.user.UserLoginRequest;
 import learn.gjx.tuku1.model.dto.user.UserQueryRequest;
@@ -158,6 +160,30 @@ public class UserController {
     public BaseResponse<Page<AdminUserVO>> listUserVOByPage(@RequestBody UserQueryRequest userQueryRequest) {
         Page<AdminUserVO> userVOPage = userService.listUserVOByPage(userQueryRequest);
         return BaseResponse.success(userVOPage);
+    }
+
+    /**
+     * 修改本人资料。
+     * @param update 昵称、简介白名单
+     * @param request 当前会话
+     * @return 更新后的本人资料
+     */
+    @PostMapping("/update/my")
+    @AuthCheck
+    public BaseResponse<LoginUserVO> updateMyProfile(@RequestBody UserProfileUpdateRequest update, HttpServletRequest request) {
+        return BaseResponse.success(userService.updateMyProfile(update, request));
+    }
+
+    /**
+     * 修改本人密码，保留当前会话并使其他会话失效。
+     * @param update 旧密码、新密码和确认密码
+     * @param request 当前会话
+     * @return 修改成功状态
+     */
+    @PostMapping("/password/update")
+    @AuthCheck
+    public BaseResponse<Boolean> updateMyPassword(@RequestBody UserPasswordUpdateRequest update, HttpServletRequest request) {
+        return BaseResponse.success(userService.updateMyPassword(update, request));
     }
 
 }

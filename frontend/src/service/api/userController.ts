@@ -134,3 +134,13 @@ export async function updateUserUsingPost(
     ...(options || {}),
   })
 }
+
+/** 修改本人昵称和简介。 */
+export async function updateMyProfileUsingPost(body: API.UserProfileUpdateRequest) {
+  return request<API.BaseResponseLoginUserVO_>('/api/user/update/my', { method: 'POST', data: body })
+}
+
+/** 校验旧密码，修改密码并使其他会话失效。 */
+export async function updateMyPasswordUsingPost(body: API.UserPasswordUpdateRequest) {
+  return request<API.BaseResponseBoolean_>('/api/user/password/update', { method: 'POST', data: body })
+}
