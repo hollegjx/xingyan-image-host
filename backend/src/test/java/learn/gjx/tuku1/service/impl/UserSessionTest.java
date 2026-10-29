@@ -37,6 +37,7 @@ class UserSessionTest {
         user.setId(1L);
         user.setUserAccount("testuser");
         user.setUserRole(0);
+        user.setUserPassword(service.getEncrptPassword("password123"));
         doReturn(user).when(service).getOne(any());
         String oldId = request.getSession().getId();
 

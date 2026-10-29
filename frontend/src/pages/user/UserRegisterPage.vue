@@ -25,7 +25,7 @@
         >
           <a-input-password
             v-model:value="formState.userPassword"
-            placeholder="请输入密码"
+            placeholder="至少6位，UTF-8编码不超过72字节"
             autocomplete="new-password"
           />
         </a-form-item>
@@ -73,6 +73,10 @@ const formState = reactive<API.UserRegisterRequest>({
 })
 async function handleSubmit(values: API.UserRegisterRequest) {
   if (designPreview || submitting.value) return
+  if (!values.userPassword || values.userPassword.length < 6 || new TextEncoder().encode(values.userPassword).length > 72) {
+    message.error('密码至少6位，UTF-8编码不超过72字节')
+    return
+  }
   if (values.userPassword !== values.checkPassword) {
     message.error('两次输入的密码不一致')
     return

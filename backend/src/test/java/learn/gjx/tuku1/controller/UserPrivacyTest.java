@@ -77,6 +77,14 @@ class UserPrivacyTest {
     }
 
     @ParameterizedTest @ValueSource(ints = {-1, 0, 1})
+    void creatingUserWithoutInitialPasswordIsRejectedForEveryIdentity(int role) throws Exception {
+        JsonNode response = body(post("/user/add").session(identity(role)).contentType("application/json")
+                .content("{\"userAccount\":\"new-fixture\"}"));
+        assertNotEquals(0, response.path("code").asInt());
+        verify(service, never()).save(any(User.class));
+    }
+
+    @ParameterizedTest @ValueSource(ints = {-1, 0, 1})
     void publicProfileNeverExposesAccountOrRole(int role) throws Exception {
         JsonNode response = body(get("/user/get/vo").param("id", "7").session(identity(role)));
         assertEquals(0, response.path("code").asInt()); publicFields(response.path("data"));

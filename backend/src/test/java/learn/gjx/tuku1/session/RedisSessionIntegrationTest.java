@@ -340,6 +340,7 @@ class RedisSessionIntegrationTest {
             user.setUserRole(0);
             user.setIsDelete(0);
             UserServiceImpl service = spy(new UserServiceImpl());
+            user.setUserPassword(service.getEncrptPassword("password123"));
             doReturn(user).when(service).getOne(any());
             doReturn(user).when(service).getById(42L);
             return service;

@@ -2,7 +2,8 @@ package learn.gjx.tuku1.service.impl;
 
 import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
-import cn.hutool.crypto.digest.DigestUtil;
+import learn.gjx.tuku1.security.UserPasswords;
+import lombok.extern.slf4j.Slf4j;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -33,17 +34,10 @@ import java.util.stream.Collectors;
  * 用户服务实现类。
  */
 @Service
+@Slf4j
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
 
-    /**
-     * 盐值：和原始密码拼接后再做 md5，避免直接存明文密码。
-     */
-    private static final String SALT = "tuku1_salt_2025";
 
-    /**
-     * 管理员创建用户但未指定密码时使用的默认密码。
-     */
-    private static final String DEFAULT_PASSWORD = "12345678";
 
     @Override
     public long userRegister(String username, String password, String confirmPassword) {
@@ -53,9 +47,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (username.length() < 4) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "账号长度不能小于4位");
         }
-        if (password.length() < 6) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "密码长度不能小于6位");
-        }
+        UserPasswords.validateNew(password);
         if (!password.equals(confirmPassword)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "两次密码输入不一致");
         }
@@ -83,7 +75,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     @Override
     public String getEncrptPassword(String userPassword) {
-        return DigestUtil.md5Hex(SALT + userPassword);
+        return UserPasswords.hash(userPassword);
     }
 
     @Override
@@ -98,16 +90,29 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "密码长度不能小于6位");
         }
 
-        // 加密密码
-        String encryptedPassword = getEncrptPassword(password);
-
-        // 查询用户
         LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(User::getUserAccount, username);
-        queryWrapper.eq(User::getUserPassword, encryptedPassword);
         User user = this.getOne(queryWrapper);
-        if (user == null) {
-            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "用户不存在或密码错误");
+        if (user == null || !UserPasswords.matches(password, user.getUserPassword())) {
+            log.warn("登录凭据校验失败");
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "账号或密码错误，请稍后重试");
+        }
+        if (UserPasswords.isLegacy(user.getUserPassword())) {
+            String oldHash = user.getUserPassword();
+            String upgraded = UserPasswords.hashLegacy(password);
+            User patch = new User(); patch.setUserPassword(upgraded);
+            boolean updated = this.update(patch, new LambdaQueryWrapper<User>()
+                    .eq(User::getId, user.getId()).eq(User::getUserPassword, oldHash));
+            if (!updated) {
+                User latest = this.getById(user.getId());
+                if (latest == null || !UserPasswords.matches(password, latest.getUserPassword())) {
+                    log.warn("升级密码期间凭据已变更");
+                    throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "账号或密码错误，请稍后重试");
+                }
+                user = latest;
+            } else {
+                user.setUserPassword(upgraded);
+            }
         }
 
         // 脱敏后的登录用户信息
@@ -246,12 +251,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         }
 
         String userPassword = userAddRequest.getUserPassword();
-        if (StrUtil.isBlank(userPassword)) {
-            userPassword = DEFAULT_PASSWORD;
-        }
-        if (userPassword.length() < 6) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "密码长度不能小于6位");
-        }
+        UserPasswords.validateNew(userPassword);
 
         LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(User::getUserAccount, userAccount);

@@ -22,6 +22,21 @@
       </a-form-item>
     </a-form>
 
+    <a-button type="primary" @click="createOpen = true">创建用户</a-button>
+    <a-modal v-model:open="createOpen" title="创建用户" :footer="null" @cancel="clearCreate">
+      <a-form :model="createForm" layout="vertical" @finish="createUser">
+        <a-form-item label="账号" name="userAccount" :rules="[{ required: true, min: 4, message: '账号至少4位' }]">
+          <a-input v-model:value="createForm.userAccount" autocomplete="off" />
+        </a-form-item>
+        <a-form-item label="初始密码" name="userPassword" :rules="[{ required: true, min: 6, message: '请填写至少6位的初始密码' }]">
+          <a-input-password v-model:value="createForm.userPassword" autocomplete="new-password" />
+          <p>至少6位，UTF-8编码不超过72字节。</p>
+        </a-form-item>
+        <a-form-item label="昵称"><a-input v-model:value="createForm.userName" /></a-form-item>
+        <a-button type="primary" html-type="submit" :loading="creating">创建</a-button>
+      </a-form>
+    </a-modal>
+
     <!-- 表格 -->
     <a-table
       :columns="columns"
@@ -56,8 +71,26 @@
 import { ref, onMounted, reactive, computed } from 'vue';
 import { message, Modal } from 'ant-design-vue';
 import type { TablePaginationConfig } from 'ant-design-vue';
-import { listUserVoByPageUsingPost, deleteUserUsingPost } from '@/service/api/userController';
+import { listUserVoByPageUsingPost, deleteUserUsingPost, addUserUsingPost } from '@/service/api/userController';
 import dayjs from 'dayjs';
+
+const createOpen = ref(false);
+const creating = ref(false);
+const createForm = reactive<API.UserAddRequest>({ userAccount: '', userPassword: '', userName: '' });
+function clearCreate() { createForm.userAccount = ''; createForm.userPassword = ''; createForm.userName = ''; }
+async function createUser() {
+  if (creating.value) return;
+  if (!createForm.userPassword || createForm.userPassword.length < 6 || new TextEncoder().encode(createForm.userPassword).length > 72) {
+    message.error('密码至少6位，UTF-8编码不超过72字节'); return;
+  }
+  creating.value = true;
+  try {
+    const res = await addUserUsingPost({ ...createForm });
+    if (res.code !== 0) throw new Error(res.message || '创建失败');
+    clearCreate(); createOpen.value = false; message.success('创建成功'); await fetchUserList();
+  } catch (e) { message.error(e instanceof Error ? e.message : '创建失败'); }
+  finally { creating.value = false; }
+}
 
 // 格式化时间显示
 const formatTime = (time: string) => {
