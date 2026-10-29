@@ -17,6 +17,7 @@ import learn.gjx.tuku1.exception.ErrorCode;
 import learn.gjx.tuku1.exception.ThrowUtils;
 import learn.gjx.tuku1.model.vo.LoginUserVO;
 import learn.gjx.tuku1.model.vo.UserVO;
+import learn.gjx.tuku1.model.vo.AdminUserVO;
 import learn.gjx.tuku1.service.UserService;
 import org.springframework.web.bind.annotation.*;
 
@@ -95,15 +96,15 @@ public class UserController {
     /**
      * 根据ID获取用户（仅管理员）
      * @param id 用户ID
-     * @return 用户完整信息（包含敏感字段）
+     * @return 管理员用户信息（不含密码哈希）
      */
     @GetMapping("/get")
     @AuthCheck(mustRole = UserRoleEnum.ADMIN)
-    public BaseResponse<User> getUserById(long id) {
+    public BaseResponse<AdminUserVO> getUserById(long id) {
         ThrowUtils.throwIf(id <= 0, ErrorCode.PARAMS_ERROR, "用户ID不合法");
         User user = userService.getById(id);
         ThrowUtils.throwIf(user == null, ErrorCode.NOT_FOUND_ERROR, "用户不存在");
-        return BaseResponse.success(user);
+        return BaseResponse.success(userService.getAdminUserVO(user));
     }
 
     /**
@@ -153,8 +154,9 @@ public class UserController {
      * @return 分页后的用户脱敏信息列表
      */
     @PostMapping("/list/page/vo")
-    public BaseResponse<Page<UserVO>> listUserVOByPage(@RequestBody UserQueryRequest userQueryRequest) {
-        Page<UserVO> userVOPage = userService.listUserVOByPage(userQueryRequest);
+    @AuthCheck(mustRole = UserRoleEnum.ADMIN)
+    public BaseResponse<Page<AdminUserVO>> listUserVOByPage(@RequestBody UserQueryRequest userQueryRequest) {
+        Page<AdminUserVO> userVOPage = userService.listUserVOByPage(userQueryRequest);
         return BaseResponse.success(userVOPage);
     }
 

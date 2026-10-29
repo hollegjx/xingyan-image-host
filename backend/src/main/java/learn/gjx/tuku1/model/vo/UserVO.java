@@ -9,7 +9,7 @@ import java.util.Date;
 import lombok.Data;
 
 /**
- * 已登录用户视图（脱敏）
+ * 公开用户视图（不包含账号和平台角色）
  * @TableName user
  */
 @TableName(value ="user")
@@ -27,19 +27,9 @@ public class UserVO implements Serializable {
     private String userName;
 
     /**
-     * 用户账号
-     */
-    private String userAccount;
-
-    /**
      * 用户头像
      */
     private String userAvatar;
-
-    /**
-     * 用户角色
-     */
-    private Integer userRole;
 
     /**
      * 用户简介

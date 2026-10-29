@@ -112,7 +112,7 @@ const columns = [
   },
 ];
 
-const dataList = ref<API.UserVO[]>([]);
+const dataList = ref<API.AdminUserVO[]>([]);
 const loading = ref(false);
 const total = ref(0);
 
@@ -177,7 +177,7 @@ const doReset = () => {
 };
 
 // 删除用户
-const doDelete = (record: API.UserVO) => {
+const doDelete = (record: API.AdminUserVO) => {
   Modal.confirm({
     title: '确认删除',
     content: `确定要删除用户「${record.userName || record.userAccount}」吗？`,

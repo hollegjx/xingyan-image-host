@@ -741,15 +741,17 @@ declare namespace API {
     userRole?: number
   }
 
+  type AdminUserVO = UserVO & { userAccount?: string; userRole?: number }
+  type BaseResponseAdminUserVO_ = { code?: number; data?: AdminUserVO; message?: string }
+  type BaseResponsePageAdminUserVO_ = { code?: number; data?: Omit<PageUserVO_, "records"> & { records?: AdminUserVO[] }; message?: string }
+
   type UserVO = {
     createTime?: string
     editTime?: string
     id?: string | number
     updateTime?: string
-    userAccount?: string
     userAvatar?: string
     userName?: string
     userProfile?: string
-    userRole?: number
   }
 }

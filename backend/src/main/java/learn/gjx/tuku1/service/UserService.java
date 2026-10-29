@@ -9,6 +9,7 @@ import learn.gjx.tuku1.model.entity.User;
 import com.baomidou.mybatisplus.extension.service.IService;
 import learn.gjx.tuku1.model.vo.LoginUserVO;
 import learn.gjx.tuku1.model.vo.UserVO;
+import learn.gjx.tuku1.model.vo.AdminUserVO;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
@@ -59,6 +60,9 @@ public interface UserService extends IService<User> {
      */
     UserVO getUserVO(User user);
 
+    /** 获取仅供管理员接口使用的用户信息。 */
+    AdminUserVO getAdminUserVO(User user);
+
     /**
      * 获取脱敏后的用户信息列表
      * @param userList 用户实体列表
@@ -106,7 +110,7 @@ public interface UserService extends IService<User> {
      * @param userQueryRequest 用户查询请求参数（含分页）
      * @return 分页后的用户脱敏信息
      */
-    Page<UserVO> listUserVOByPage(UserQueryRequest userQueryRequest);
+    Page<AdminUserVO> listUserVOByPage(UserQueryRequest userQueryRequest);
 
     /**
      * 判断用户是否为管理员

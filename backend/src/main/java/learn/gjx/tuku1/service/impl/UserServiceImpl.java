@@ -18,6 +18,8 @@ import learn.gjx.tuku1.model.entity.User;
 import learn.gjx.tuku1.model.enums.UserRoleEnum;
 import learn.gjx.tuku1.model.vo.LoginUserVO;
 import learn.gjx.tuku1.model.vo.UserVO;
+import learn.gjx.tuku1.model.vo.AdminUserVO;
+import org.springframework.beans.BeanUtils;
 import learn.gjx.tuku1.service.UserService;
 import org.springframework.stereotype.Service;
 
@@ -142,14 +144,22 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         UserVO userVO = new UserVO();
         userVO.setId(user.getId());
         userVO.setUserName(user.getUserName());
-        userVO.setUserAccount(user.getUserAccount());
         userVO.setUserAvatar(user.getUserAvatar());
-        userVO.setUserRole(user.getUserRole());
         userVO.setUserProfile(user.getUserProfile());
         userVO.setCreateTime(user.getCreateTime());
         userVO.setUpdateTime(user.getUpdateTime());
         userVO.setEditTime(user.getEditTime());
         return userVO;
+    }
+
+    @Override
+    public AdminUserVO getAdminUserVO(User user) {
+        if (user == null) return null;
+        AdminUserVO result = new AdminUserVO();
+        BeanUtils.copyProperties(getUserVO(user), result);
+        result.setUserAccount(user.getUserAccount());
+        result.setUserRole(user.getUserRole());
+        return result;
     }
 
     @Override
@@ -297,7 +307,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
-    public Page<UserVO> listUserVOByPage(UserQueryRequest userQueryRequest) {
+    public Page<AdminUserVO> listUserVOByPage(UserQueryRequest userQueryRequest) {
         if (userQueryRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "请求参数为空");
         }
@@ -310,8 +320,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         QueryWrapper<User> queryWrapper = getQueryWrapper(userQueryRequest);
         Page<User> userPage = this.page(new Page<>(current, pageSize), queryWrapper);
 
-        Page<UserVO> userVOPage = new Page<>(current, pageSize, userPage.getTotal());
-        List<UserVO> userVOList = getUserVOList(userPage.getRecords());
+        Page<AdminUserVO> userVOPage = new Page<>(current, pageSize, userPage.getTotal());
+        List<AdminUserVO> userVOList = userPage.getRecords().stream()
+                .map(this::getAdminUserVO).collect(Collectors.toList());
         userVOPage.setRecords(userVOList);
 
         return userVOPage;
