@@ -115,7 +115,7 @@ onBeforeUnmount(() => {
 }
 .favorite-card {
   padding: 16px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--line);
   border-radius: 20px;
   background: var(--surface);
 }
