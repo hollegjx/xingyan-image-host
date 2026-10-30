@@ -484,7 +484,7 @@ async function logout() {
     font-size: 13px;
   }
   .settings-preview p {
-    font-size: 9px;
+    font-size: 10px;
   }
   .settings-saving {
     flex-direction: column;

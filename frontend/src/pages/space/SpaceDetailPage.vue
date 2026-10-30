@@ -87,14 +87,14 @@
               @click="selectionMode = true"
               ><CheckSquareOutlined />选择图片</a-button
             >
-            <a-button aria-label="刷新" title="刷新图片" :disabled="loading" @click="load"
-              ><ReloadOutlined
-            /></a-button>
+            <a-button aria-label="刷新" :disabled="loading" @click="load"
+              ><ReloadOutlined />刷新</a-button
+            >
           </template>
         </PictureSearchForm>
         <section v-if="colorOpen" id="space-color-panel" class="color-panel" aria-label="颜色搜索">
           <div>
-            <h3>用颜色，找到相近的灵感。</h3>
+            <h3>用颜色，找到相近的灵感</h3>
             <p>独立于文字和属性筛选，显示颜色最接近的 12 张图片。</p>
           </div>
           <div class="color-search">
@@ -945,7 +945,7 @@ onBeforeUnmount(() => {
   .draft-label {
     left: 6px;
     top: 6px;
-    font-size: 9px;
+    font-size: 10px;
     padding: 4px 6px;
   }
   .selection-actions {

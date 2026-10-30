@@ -2,14 +2,14 @@
   <div id="addPicturePage" :aria-busy="initializing">
     <header class="creation-header">
       <span class="eyebrow">创作工作台</span>
-      <h2>{{ !picture ? '创建图片' : isDraft ? '完善图片信息' : '编辑 / 替换图片' }}</h2>
+      <h2>{{ !picture ? '创建图片' : isDraft ? '完善图片信息' : '编辑图片信息' }}</h2>
       <p>
         {{
           !picture
             ? '为想留下的画面，找一处安静的屋檐。'
             : isDraft
               ? '图片已收进檐下，补上名称和简介，保存后就完成了。'
-              : '给好作品，一点新的可能。'
+              : '修改名称、简介、分类或标签，保存后立即生效。'
         }}
       </p>
     </header>
@@ -18,7 +18,7 @@
       <template #action><a-button @click="loadContext">重试</a-button></template>
     </a-alert>
     <template v-else>
-      <ol class="creation-steps" aria-label="创建图片步骤">
+      <ol v-if="!picture || isDraft" class="creation-steps" aria-label="创建图片步骤">
         <li :class="{ complete: picture }" :aria-current="!picture ? 'step' : undefined">
           <span>01</span> 上传图片
         </li>
@@ -82,7 +82,7 @@
         :model="pictureForm"
         @finish="handleSubmit"
       >
-        <h3>让这张图片，更容易被找到。</h3>
+        <h3>让这张图片，更容易被找到</h3>
         <a-form-item label="名称">
           <a-input
             v-model:value="pictureForm.name"
@@ -353,11 +353,11 @@ const handleSubmit = async () => {
     if (res.code === 0) {
       message.success({
         content: spaceId.value
-          ? '已保存到空间'
+          ? `已保存到「${space.value?.spaceName || '空间'}」`
           : isDraft.value
             ? '已提交，审核通过后会出现在公共图库'
             : '图片信息已更新',
-        duration: 4,
+        duration: 5,
       })
       savedForm.value = JSON.stringify(pictureForm.value)
       submitting.value = false

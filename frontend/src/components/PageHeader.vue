@@ -5,7 +5,7 @@
         <LeftOutlined />{{ back }}
       </button>
       <span v-if="eyebrow" class="eyebrow">{{ eyebrow }}</span>
-      <h1>{{ title }}<span class="title-period">。</span></h1>
+      <h1>{{ title }}</h1>
       <p v-if="description">{{ description }}</p>
     </div>
     <div v-if="$slots.actions" class="page-header-actions"><slot name="actions" /></div>
@@ -15,7 +15,7 @@
 <script setup lang="ts">
 import { LeftOutlined } from '@ant-design/icons-vue'
 
-// 工作台页面统一的标题区：小标题、大标题与灰色句号，与「我的投稿」「团队空间」一致
+// 工作台页面统一的标题区：小标题、大标题与说明，与「我的投稿」「团队空间」一致
 defineProps<{ title: string; eyebrow?: string; description?: string; back?: string }>()
 const emit = defineEmits<{ back: [] }>()
 </script>
@@ -58,9 +58,6 @@ const emit = defineEmits<{ back: [] }>()
   font-weight: 650;
   line-height: 1.2;
   overflow-wrap: anywhere;
-}
-.title-period {
-  color: #b7b7bf;
 }
 .page-header p {
   max-width: 680px;

@@ -4,8 +4,8 @@
       v-if="picture?.spaceId != null"
       type="warning"
       show-icon
-      message="私人图片链接不会授予访问权限"
-      description="接收者仍须登录并通过空间权限校验。当前仅空间所有者可查看，复制链接不会公开图片。"
+      message="空间里的图片没有公开直链"
+      description="下面的链接只有能进入这个空间的人登录后才能打开。需要直链或 Markdown 外链时，请把图片上传到公共图库，审核通过后就能在这里复制。"
     />
     <a-alert
       v-else-if="picture?.uploadStatus !== 1 || picture?.reviewStatus !== 1"

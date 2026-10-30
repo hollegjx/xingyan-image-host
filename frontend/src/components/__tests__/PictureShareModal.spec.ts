@@ -29,7 +29,7 @@ describe('picture sharing', () => {
       },
       global: { stubs },
     })
-    expect(wrapper.text()).toContain('私人图片链接不会授予访问权限')
+    expect(wrapper.text()).toContain('空间里的图片没有公开直链')
     expect(wrapper.text()).not.toContain('sign=xyz')
     await wrapper.get('button').trigger('click')
     await flushPromises()

@@ -27,19 +27,10 @@
             <SpaceUsage :space="space" />
             <a-space wrap
               ><a-button @click="edit(space)">调整名称与额度</a-button
-              ><a-tooltip
-                :title="
-                  Number(space.totalCount) > 0
-                    ? `空间里还有 ${space.totalCount} 张图片，清空后才能删除`
-                    : '只有没有任何图片的空间可以删除'
-                "
-                ><a-button
-                  type="text"
-                  danger
-                  :disabled="Number(space.totalCount) > 0"
-                  @click="remove(space)"
-                  >删除空空间</a-button
-                ></a-tooltip
+              ><span v-if="Number(space.totalCount) > 0" class="delete-hint"
+                >还有 {{ space.totalCount }} 张图片，清空后才能删除</span
+              ><a-button v-else type="text" danger @click="remove(space)"
+                >删除空空间</a-button
               ></a-space
             >
           </a-card>
@@ -189,6 +180,10 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.delete-hint {
+  color: var(--muted);
+  font-size: 12px;
+}
 .space-filters {
   width: 100%;
   padding: 16px 20px;

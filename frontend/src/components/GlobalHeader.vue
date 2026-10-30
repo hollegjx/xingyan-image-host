@@ -347,7 +347,7 @@ async function handleLogout() {
 .source-link .anticon:last-child {
   margin-left: auto;
   transform: rotate(45deg);
-  font-size: 9px;
+  font-size: 10px;
 }
 .topbar {
   position: fixed;
@@ -434,7 +434,7 @@ async function handleLogout() {
   white-space: nowrap;
 }
 .user-chevron {
-  font-size: 9px;
+  font-size: 10px;
   color: var(--muted);
 }
 .mobile-menu,

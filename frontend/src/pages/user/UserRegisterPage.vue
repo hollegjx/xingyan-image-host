@@ -1,7 +1,7 @@
 <template>
   <AuthShell>
     <div id="userRegisterPage">
-      <h1>在星檐，留一处空间。</h1>
+      <h1>在星檐，留一处空间</h1>
       <p class="auth-subtitle">创建账户，从第一张想留下的图片开始。</p>
       <p v-if="designPreview" class="preview-warning">
         当前为本地只读预览，注册不会提交。请勿输入真实账号或密码。

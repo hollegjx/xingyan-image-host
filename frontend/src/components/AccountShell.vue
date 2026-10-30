@@ -2,7 +2,7 @@
   <section class="account-page">
     <header class="account-heading">
       <span class="eyebrow">你的账户</span>
-      <h1>{{ title }}<span>。</span></h1>
+      <h1>{{ title }}</h1>
       <p>{{ description }}</p>
     </header>
     <nav class="account-navigation" aria-label="账户导航">
@@ -39,9 +39,6 @@ const route = useRoute()
   margin: 14px 0 12px;
   font-size: clamp(32px, 4vw, 42px);
   font-weight: 650;
-}
-.account-heading h1 > span {
-  color: #b7b7bf;
 }
 .account-heading p {
   margin: 0;

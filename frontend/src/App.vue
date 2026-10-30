@@ -17,7 +17,7 @@ loginUserStore.fetchLoginUser()
         colorPrimary: '#1d1d1f',
         colorInfo: '#1d1d1f',
         colorText: '#1d1d1f',
-        colorTextSecondary: '#6e6e73',
+        colorTextSecondary: '#636366',
         colorBorder: '#dedee3',
         colorBgLayout: '#ffffff',
         borderRadius: 10,

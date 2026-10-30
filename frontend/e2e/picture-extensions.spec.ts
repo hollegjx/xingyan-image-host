@@ -113,7 +113,7 @@ test('private share uses a canonical detail link, warns, renders QR and fits mob
   await page.getByRole('button', { name: '图片操作 猫图' }).click()
   await page.getByRole('menuitem', { name: /分享$/ }).click()
   const dialog = page.getByRole('dialog')
-  await expect(dialog.getByText('私人图片链接不会授予访问权限')).toBeVisible()
+  await expect(dialog.getByText('空间里的图片没有公开直链')).toBeVisible()
   await expect(dialog.locator('#picture-share-link')).toHaveValue(
     new URL(`/picture/${rows[0]!.id}`, page.url()).href,
   )

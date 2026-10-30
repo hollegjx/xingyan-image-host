@@ -2,7 +2,7 @@
   <section class="not-found">
     <BrandMark class="lost-mark" />
     <span class="eyebrow">星檐 · 404</span>
-    <h1>这片屋檐下，暂时没有这一页。</h1>
+    <h1>这片屋檐下，暂时没有这一页</h1>
     <p>地址可能写错了，也可能已经更换。回到图库，继续看看吧。</p>
     <router-link to="/" class="return-home">返回首页 <ArrowRightOutlined /></router-link>
   </section>

@@ -214,7 +214,7 @@ test('direct public detail uses home fallback and public navigation', async ({ p
 test('404 has a recovery action, not an empty shell', async ({ page }, info) => {
   await setup(page)
   await page.goto('/missing-page')
-  await expect(page.getByRole('heading', { name: '这片屋檐下，暂时没有这一页。' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '这片屋檐下，暂时没有这一页' })).toBeVisible()
   await expect(page).toHaveTitle('页面未找到 · 星檐图床')
   await page.screenshot({ path: info.outputPath('xingyan-404.png') })
   await page.getByRole('link', { name: '返回首页' }).click()
@@ -242,5 +242,5 @@ test('brand stays readable on desktop and small phones, with full-color pictures
   await page.goto('/user/login')
   await expect(page.getByText('回到星檐，接着收好你的日常。')).toBeVisible()
   await page.getByRole('link', { name: '去注册' }).click()
-  await expect(page.getByRole('heading', { name: '在星檐，留一处空间。' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '在星檐，留一处空间' })).toBeVisible()
 })

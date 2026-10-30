@@ -1,106 +1,145 @@
 <template>
   <div class="picture-upload" :class="{ 'is-busy': busy }" :aria-busy="busy">
-    <p v-if="picture?.uploadStatus === 0" class="replacement-note">
-      想换一张？重新选择文件即可替换这份草稿。
-    </p>
-    <p v-else-if="picture" class="replacement-note">
-      当前为替换模式，上传新文件会替换此图片。移除预览不会删除数据库记录。
-    </p>
-    <a-tabs v-model:activeKey="uploadMode">
-      <a-tab-pane key="file" tab="文件上传" :disabled="urlUploading || disabled">
-        <fieldset class="upload-picker" :disabled="busy || disabled" aria-label="选择图片文件">
-          <a-upload-dragger
-            v-model:file-list="fileList"
-            class="upload-dropzone"
-            accept=".jpg,.jpeg,.png,.gif,.webp"
-            :show-upload-list="false"
-            :multiple="false"
-            :max-count="1"
-            :before-upload="handleBeforeUpload"
-            :custom-request="handleUpload"
-            :disabled="busy || disabled"
-            :aria-disabled="busy || disabled"
+    <!-- 编辑已完成的图片时只展示当前图片，需要替换时再展开上传区 -->
+    <div v-if="collapsed" class="file-preview-card">
+      <img class="file-preview" :src="uploadedPreviewUrl" alt="当前图片" />
+      <div class="preview-caption">
+        <span><PictureOutlined /> 当前图片</span>
+        <div class="preview-actions">
+          <a-button size="small" :disabled="disabled" @click="handlePreview(fileList[0]!)"
+            >查看大图</a-button
           >
-            <div class="upload-content">
-              <div class="upload-art" aria-hidden="true">
-                <span class="folder-shadow" />
-                <span class="folder-back" />
-                <span class="upload-paper paper-back"><span class="paper-landscape" /></span>
-                <span class="upload-paper paper-front"><span class="paper-landscape" /></span>
-                <span class="folder-front"><CloudUploadOutlined /></span>
-                <span class="art-spark spark-one">+</span><span class="art-spark spark-two">+</span>
+          <a-button size="small" :disabled="disabled" @click="replacing = true">替换图片</a-button>
+        </div>
+      </div>
+    </div>
+    <template v-else>
+      <p v-if="picture?.uploadStatus === 0" class="replacement-note">
+        想换一张？重新选择文件即可替换这份草稿。
+      </p>
+      <p v-else-if="picture" class="replacement-note">
+        上传新文件会替换当前图片，名称、标签等信息保持不变。
+        <a-button type="link" size="small" :disabled="busy" @click="cancelReplace"
+          >取消替换</a-button
+        >
+      </p>
+      <a-tabs v-model:activeKey="uploadMode">
+        <a-tab-pane key="file" tab="文件上传" :disabled="urlUploading || disabled">
+          <fieldset class="upload-picker" :disabled="busy || disabled" aria-label="选择图片文件">
+            <a-upload-dragger
+              v-model:file-list="fileList"
+              class="upload-dropzone"
+              accept=".jpg,.jpeg,.png,.gif,.webp"
+              :show-upload-list="false"
+              :multiple="false"
+              :max-count="1"
+              :before-upload="handleBeforeUpload"
+              :custom-request="handleUpload"
+              :disabled="busy || disabled"
+              :aria-disabled="busy || disabled"
+            >
+              <div class="upload-content">
+                <div class="upload-art" aria-hidden="true">
+                  <span class="folder-shadow" />
+                  <span class="folder-back" />
+                  <span class="upload-paper paper-back"><span class="paper-landscape" /></span>
+                  <span class="upload-paper paper-front"><span class="paper-landscape" /></span>
+                  <span class="folder-front"><CloudUploadOutlined /></span>
+                  <span class="art-spark spark-one">+</span
+                  ><span class="art-spark spark-two">+</span>
+                </div>
+                <h3>
+                  {{
+                    loading
+                      ? '正在上传你的图片'
+                      : uploadedPreviewUrl
+                        ? '拖入新图片，替换当前作品'
+                        : '把这一帧，收进檐下'
+                  }}
+                </h3>
+                <p>
+                  {{
+                    loading ? '请稍候，完成后即可继续完善信息' : '拖拽图片到这里，或点击选择文件'
+                  }}
+                </p>
+                <span class="upload-choose"
+                  ><LoadingOutlined v-if="loading" /><PlusOutlined v-else />{{
+                    loading
+                      ? processing
+                        ? '处理中…'
+                        : `上传中 ${progress}%`
+                      : uploadedPreviewUrl
+                        ? '选择替换图片'
+                        : '选择图片'
+                  }}</span
+                >
+                <span class="upload-formats"
+                  >JPG · PNG · GIF · WebP<span>单张不超过 2MB</span></span
+                >
               </div>
-              <h3>
-                {{
-                  loading
-                    ? '正在上传你的图片'
-                    : uploadedPreviewUrl
-                      ? '拖入新图片，替换当前作品'
-                      : '把这一帧，收进檐下。'
-                }}
-              </h3>
-              <p>
-                {{ loading ? '请稍候，完成后即可继续完善信息' : '拖拽图片到这里，或点击选择文件' }}
-              </p>
-              <span class="upload-choose"
-                ><LoadingOutlined v-if="loading" /><PlusOutlined v-else />{{
-                  loading ? '上传中…' : uploadedPreviewUrl ? '选择替换图片' : '选择图片'
-                }}</span
-              >
-              <span class="upload-formats">JPG · PNG · GIF · WebP<span>单张不超过 2MB</span></span>
-            </div>
-          </a-upload-dragger>
-        </fieldset>
-        <p v-if="loading" class="upload-status" role="status">
-          <LoadingOutlined /> 正在上传，请不要关闭页面。
-        </p>
-        <div v-if="uploadedPreviewUrl" class="file-preview-card">
-          <img class="file-preview" :src="uploadedPreviewUrl" alt="已上传的图片预览" />
-          <div class="preview-caption">
-            <span><CheckCircleOutlined /> 已就绪，继续完善图片信息</span>
-            <div class="preview-actions">
-              <a-button
-                size="small"
-                :disabled="busy || disabled"
-                @click="handlePreview(fileList[0]!)"
-                >查看大图</a-button
-              >
-              <a-button size="small" :disabled="busy || disabled" @click="clearPreview"
-                >移除预览</a-button
-              >
+            </a-upload-dragger>
+          </fieldset>
+          <div v-if="loading" class="upload-status" role="status">
+            <p>
+              <LoadingOutlined />
+              {{
+                processing
+                  ? '文件已送达，正在压缩并生成缩略图，请不要关闭页面。'
+                  : `正在上传 ${progress}%，请不要关闭页面。`
+              }}
+            </p>
+            <span class="upload-bar" :class="{ processing }" aria-hidden="true"
+              ><span :style="{ width: `${progress}%` }"
+            /></span>
+          </div>
+          <div v-if="uploadedPreviewUrl" class="file-preview-card">
+            <img class="file-preview" :src="uploadedPreviewUrl" alt="已上传的图片预览" />
+            <div class="preview-caption">
+              <span><CheckCircleOutlined /> 已就绪，继续完善图片信息</span>
+              <div class="preview-actions">
+                <a-button
+                  size="small"
+                  :disabled="busy || disabled"
+                  @click="handlePreview(fileList[0]!)"
+                  >查看大图</a-button
+                >
+                <a-button size="small" :disabled="busy || disabled" @click="clearPreview"
+                  >移除预览</a-button
+                >
+              </div>
             </div>
           </div>
-        </div>
-      </a-tab-pane>
+        </a-tab-pane>
 
-      <a-tab-pane key="url" tab="URL 上传" :disabled="loading || disabled">
-        <div class="url-upload-panel">
-          <div class="url-intro">
-            <LinkOutlined />
-            <div>
-              <h3>从一个链接开始</h3>
-              <p>粘贴图片的直链地址，导入到当前图库。</p>
+        <a-tab-pane key="url" tab="URL 上传" :disabled="loading || disabled">
+          <div class="url-upload-panel">
+            <div class="url-intro">
+              <LinkOutlined />
+              <div>
+                <h3>从一个链接开始</h3>
+                <p>粘贴图片的直链地址，导入到当前图库。</p>
+              </div>
             </div>
+            <a-input-search
+              v-model:value="pictureUrl"
+              class="url-upload"
+              placeholder="请输入图片 URL"
+              enter-button="提交"
+              allow-clear
+              :loading="urlUploading"
+              :disabled="loading || urlUploading || disabled"
+              @search="handleUrlUpload"
+            />
+            <img
+              v-if="uploadedPreviewUrl"
+              class="uploaded-preview"
+              :src="uploadedPreviewUrl"
+              alt="图片预览"
+            />
           </div>
-          <a-input-search
-            v-model:value="pictureUrl"
-            class="url-upload"
-            placeholder="请输入图片 URL"
-            enter-button="提交"
-            allow-clear
-            :loading="urlUploading"
-            :disabled="loading || urlUploading || disabled"
-            @search="handleUrlUpload"
-          />
-          <img
-            v-if="uploadedPreviewUrl"
-            class="uploaded-preview"
-            :src="uploadedPreviewUrl"
-            alt="图片预览"
-          />
-        </div>
-      </a-tab-pane>
-    </a-tabs>
+        </a-tab-pane>
+      </a-tabs>
+    </template>
 
     <!-- 图片预览弹窗 -->
     <a-modal :open="previewVisible" :footer="null" @cancel="previewVisible = false">
@@ -117,9 +156,11 @@ import {
   CloudUploadOutlined,
   LinkOutlined,
   CheckCircleOutlined,
+  PictureOutlined,
 } from '@ant-design/icons-vue'
 import { message, Upload } from 'ant-design-vue'
 import type { UploadFile } from 'ant-design-vue'
+import type { AxiosProgressEvent } from 'axios'
 import {
   uploadPictureByUrlUsingPost,
   uploadPictureUsingPost,
@@ -144,6 +185,18 @@ const pictureUrl = ref('')
 const uploadMode = ref<'file' | 'url'>('file')
 const busy = computed(() => loading.value || urlUploading.value)
 const uploadedPreviewUrl = computed(() => fileList.value[0]?.url)
+// 上传进度：文件传完后服务器还要压缩和生成缩略图，此时显示“处理中”
+const progress = ref(0)
+const processing = computed(() => loading.value && progress.value >= 100)
+const replacing = ref(false)
+const collapsed = computed(
+  () =>
+    !!props.picture &&
+    props.picture.uploadStatus !== 0 &&
+    !replacing.value &&
+    !busy.value &&
+    !!uploadedPreviewUrl.value,
+)
 watch(
   () => loading.value || urlUploading.value,
   (value) => emit('busy', value),
@@ -159,8 +212,17 @@ function clearPreview() {
   fileList.value = []
 }
 
+function cancelReplace() {
+  replacing.value = false
+  restorePreview()
+}
+
 // 监听父组件传入的 picture，初始化显示
 watch(() => props.picture, restorePreview, { immediate: true })
+watch(
+  () => props.picture?.id,
+  () => (replacing.value = false),
+)
 
 // 阻止默认上传行为
 const handleBeforeUpload = (file: File) => {
@@ -177,14 +239,20 @@ const handleBeforeUpload = (file: File) => {
 const handleUpload = async ({ file }: { file: File }) => {
   if (loading.value || urlUploading.value || props.disabled) return
   loading.value = true
+  progress.value = 0
   try {
     // 构造参数，如果有 picture.id 则传入（用于编辑）
     const params = { id: props.picture?.id, spaceId: props.spaceId }
     const res = await uploadPictureUsingPost(params, {}, file, {
       timeout: PICTURE_UPLOAD_TIMEOUT_MS,
+      onUploadProgress: (event: AxiosProgressEvent) => {
+        if (event.total)
+          progress.value = Math.min(100, Math.round((event.loaded / event.total) * 100))
+      },
     })
 
     if (res.code === 0 && res.data) {
+      replacing.value = false
       message.success(props.picture ? '图片已替换' : '图片已上传为草稿，请完善信息后提交')
       // 更新文件状态为成功，并设置 URL
       fileList.value = [
@@ -241,6 +309,7 @@ const handleUrlUpload = async (value: string) => {
         },
       ]
       pictureUrl.value = ''
+      replacing.value = false
       await props.onSuccess?.(res.data)
     } else {
       message.error('图片导入失败，' + res.message)
@@ -280,6 +349,11 @@ const getBase64 = (file: File): Promise<string> => {
   margin: 0 0 16px;
   font-size: 12px;
   color: var(--muted);
+}
+.replacement-note :deep(.ant-btn-link) {
+  height: auto;
+  padding: 0 4px;
+  font-size: 12px;
 }
 .picture-upload :deep(.ant-tabs-nav) {
   margin-bottom: 24px;
@@ -484,10 +558,44 @@ const getBase64 = (file: File): Promise<string> => {
   color: var(--muted);
 }
 .upload-status {
-  margin: 16px 0 0;
+  margin: 16px auto 0;
+  max-width: 360px;
   color: var(--muted);
   font-size: 12px;
   text-align: center;
+}
+.upload-status p {
+  margin: 0 0 10px;
+}
+.upload-bar {
+  display: block;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--line);
+}
+.upload-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--ink);
+  transition: width 200ms linear;
+}
+.upload-bar.processing > span {
+  animation: upload-processing 1.4s ease-in-out infinite;
+}
+@keyframes upload-processing {
+  50% {
+    opacity: 0.35;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .upload-bar > span {
+    transition: none;
+  }
+  .upload-bar.processing > span {
+    animation: none;
+  }
 }
 .file-preview-card {
   margin-top: 24px;

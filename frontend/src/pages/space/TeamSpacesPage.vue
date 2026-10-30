@@ -3,7 +3,7 @@
     <header class="team-header">
       <div>
         <span class="eyebrow">协作 · 共享 · 共创</span>
-        <h1>团队空间<span class="title-period">。</span></h1>
+        <h1>团队空间</h1>
         <p>
           和伙伴一起整理素材。浏览者只能查看；编辑者可上传、编辑和删除图片；团队管理员还能管理成员和分析图库。
         </p>
@@ -193,9 +193,6 @@ onBeforeUnmount(() => {
   font-size: clamp(34px, 4vw, 46px);
   font-weight: 650;
   line-height: 1.2;
-}
-.title-period {
-  color: #b7b7bf;
 }
 .team-header p {
   max-width: 640px;

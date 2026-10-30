@@ -97,7 +97,7 @@ test('submissions communicate scope, statuses, filters, pagination and edit dest
   const calls = await setup(page)
   await page.setViewportSize({ width: 1440, height: 1000 })
   await page.goto('/picture/mine')
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('我的投稿。')
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('我的投稿')
   await expect(page.locator('.submission-card')).toHaveCount(12)
   await expect(page.getByRole('link', { name: /寻找私人图片/ })).toHaveAttribute(
     'href',
@@ -199,7 +199,7 @@ test('avatar opens real current-user profile without admin APIs', async ({ page 
   await page.goto('/picture/mine')
   await page.getByRole('button', { name: '用户菜单' }).click()
   await page.getByRole('menuitem', { name: '个人资料' }).click()
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('个人资料。')
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('个人资料')
   await expect(page.getByText('9007199254740993', { exact: true })).toBeVisible()
   await expect(page.getByText('gallery-reader', { exact: true })).toBeVisible()
   await expect(page.getByText('可在设置中修改昵称、简介和密码', { exact: false })).toBeVisible()
@@ -233,7 +233,7 @@ test('settings apply, persist and synchronize with footer without user mutation 
   await page.setViewportSize({ width: 1440, height: 1000 })
   await page.emulateMedia({ reducedMotion: 'no-preference' })
   await page.goto('/user/settings')
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('偏好与设置。')
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('偏好与设置')
   await page.screenshot({ path: info.outputPath('settings-desktop.png'), fullPage: true })
   await page.getByRole('switch', { name: '背景粒子', exact: true }).click()
   await expect(page.locator('.particle-background')).toBeHidden()

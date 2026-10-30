@@ -28,15 +28,6 @@
           style="min-width: 200px"
         />
       </a-form-item>
-      <a-form-item label="审核状态">
-        <a-select
-          v-model:value="searchParams.reviewStatus"
-          placeholder="全部状态"
-          allow-clear
-          :options="reviewStatusOptions"
-          style="min-width: 140px"
-        />
-      </a-form-item>
       <a-form-item>
         <a-space>
           <a-button type="primary" html-type="submit">搜索</a-button>
@@ -44,6 +35,15 @@
         </a-space>
       </a-form-item>
     </a-form>
+
+    <!-- 后端只按单一审核状态查询（不传时默认待审核），因此用分段切换而非“全部” -->
+    <a-segmented
+      v-model:value="searchParams.reviewStatus"
+      class="status-switch"
+      :options="reviewStatusOptions"
+      aria-label="审核状态"
+      @change="doSearch"
+    />
 
     <!-- 表格 -->
     <a-table
@@ -55,6 +55,17 @@
       row-key="id"
       @change="handleTableChange"
     >
+      <template #emptyText>
+        <div class="table-empty">
+          <p>{{ emptyText }}</p>
+          <a-button
+            v-if="searchParams.reviewStatus !== REVIEW_STATUS.PASS && !hasFilters"
+            size="small"
+            @click="switchStatus(REVIEW_STATUS.PASS)"
+            >查看已通过的图片</a-button
+          >
+        </div>
+      </template>
       <template #bodyCell="{ column, record }">
         <template v-if="column.key === 'url'">
           <PictureThumbnail :picture="record" width="80px" :height="60" preview />
@@ -162,7 +173,10 @@ const formatSize = (size: number) => {
   return (size / 1024 / 1024).toFixed(1) + ' MB';
 };
 
-const reviewStatusOptions = PICTURE_REVIEW_STATUS_OPTIONS;
+const reviewStatusOptions = PICTURE_REVIEW_STATUS_OPTIONS.map((option) => ({
+  ...option,
+  label: option.value === REVIEW_STATUS.REVIEWING ? option.label : `已${option.label}`,
+}));
 
 const getReviewStatusText = (status?: number) => {
   if (status === undefined || status === null) return '-';
@@ -258,8 +272,17 @@ const searchParams = reactive<API.PictureQueryRequest>({
   searchText: undefined,
   category: undefined,
   tags: undefined,
-  // 默认显示全部状态，避免没有待审核图片时整页显示“暂无数据”
-  reviewStatus: undefined,
+  reviewStatus: REVIEW_STATUS.REVIEWING,
+});
+
+const hasFilters = computed(
+  () => !!(searchParams.searchText || searchParams.category || searchParams.tags?.length),
+);
+const emptyText = computed(() => {
+  if (hasFilters.value) return '没有符合条件的图片';
+  if (searchParams.reviewStatus === REVIEW_STATUS.REVIEWING) return '没有待审核的投稿';
+  if (searchParams.reviewStatus === REVIEW_STATUS.REJECT) return '没有已拒绝的图片';
+  return '还没有已通过的图片';
 });
 
 // 表格分页配置
@@ -301,13 +324,18 @@ const doSearch = () => {
   fetchPictureList();
 };
 
+const switchStatus = (reviewStatus: number) => {
+  searchParams.reviewStatus = reviewStatus;
+  doSearch();
+};
+
 // 重置
 const doReset = () => {
   searchParams.current = 1;
   searchParams.searchText = undefined;
   searchParams.category = undefined;
   searchParams.tags = undefined;
-  searchParams.reviewStatus = undefined;
+  searchParams.reviewStatus = REVIEW_STATUS.REVIEWING;
   fetchPictureList();
 };
 
@@ -415,6 +443,16 @@ const fetchTagOptions = async () => {
 .search-form {
   gap: 12px 0;
   margin-bottom: 20px;
+}
+.status-switch {
+  margin-bottom: 16px;
+}
+.table-empty {
+  padding: 28px 0;
+  color: var(--muted);
+}
+.table-empty p {
+  margin: 0 0 12px;
 }
 
 .review-info {

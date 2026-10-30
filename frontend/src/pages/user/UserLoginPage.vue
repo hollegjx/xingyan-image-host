@@ -1,7 +1,7 @@
 <template>
   <AuthShell>
     <div id="userLoginPage">
-      <h1>欢迎回来。</h1>
+      <h1>欢迎回来</h1>
       <p class="auth-subtitle">回到星檐，接着收好你的日常。</p>
       <p v-if="designPreview" class="preview-warning">
         当前为本地只读预览，登录不会提交。请勿输入真实账号或密码。

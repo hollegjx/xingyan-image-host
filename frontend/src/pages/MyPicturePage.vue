@@ -3,7 +3,7 @@
     <header class="submissions-header">
       <div>
         <span class="eyebrow">创作 · 分享 · 被看见</span>
-        <h1>我的投稿<span class="title-period">。</span></h1>
+        <h1>我的投稿</h1>
         <p>分享给公共图库的作品，都在这里。</p>
       </div>
       <router-link to="/picture/add" class="submission-create"
@@ -260,9 +260,6 @@ onBeforeUnmount(() => {
   font-weight: 650;
   margin: 14px 0 12px;
   line-height: 1.2;
-}
-.title-period {
-  color: #b7b7bf;
 }
 .submissions-header p {
   font-size: 14px;
@@ -564,7 +561,7 @@ onBeforeUnmount(() => {
 }
 .empty-paper > .anticon {
   font-size: 28px;
-  color: #8f8f96;
+  color: var(--muted);
   margin-bottom: 4px;
 }
 .empty-paper > span {

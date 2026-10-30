@@ -106,7 +106,7 @@ defineEmits<{ share: [picture: API.PictureVO] }>()
   color: var(--ink);
 }
 .card-format {
-  font-size: 9px;
+  font-size: 10px;
   color: var(--muted);
   letter-spacing: 0.03em;
   flex-shrink: 0;
@@ -137,7 +137,7 @@ defineEmits<{ share: [picture: API.PictureVO] }>()
   height: 18px;
   background: #ededf0;
   border-radius: 50%;
-  font-size: 9px;
+  font-size: 10px;
   color: var(--muted);
 }
 .card-actions {
