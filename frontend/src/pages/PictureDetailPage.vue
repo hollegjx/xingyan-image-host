@@ -287,6 +287,7 @@ onBeforeUnmount(() => {
 .detail-info {
   position: sticky;
   top: 24px;
+  min-width: 0;
 }
 .detail-info .eyebrow {
   color: var(--muted);
@@ -326,6 +327,8 @@ onBeforeUnmount(() => {
   font-size: 14px;
   line-height: 1.75;
   white-space: pre-line;
+  /* 简介里常带来源网址，允许在任意位置换行，避免撑破信息栏 */
+  overflow-wrap: anywhere;
 }
 .detail-tags {
   display: flex;
