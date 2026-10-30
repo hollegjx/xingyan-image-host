@@ -71,7 +71,7 @@
             分享
           </a-button>
           <a-button v-if="canFavorite" :loading="favoriteBusy" :aria-pressed="!!picture.favorited" @click="toggleFavorite">
-            <template #icon><HeartFilled v-if="picture.favorited" /><HeartOutlined v-else /></template>
+            <template #icon><HeartFilled v-if="picture.favorited" aria-hidden="true" /><HeartOutlined v-else aria-hidden="true" /></template>
             {{ picture.favorited ? '已收藏' : '收藏' }} · {{ picture.favoriteCount ?? 0 }}
           </a-button>
           <PictureSearchButton :picture="picture" />

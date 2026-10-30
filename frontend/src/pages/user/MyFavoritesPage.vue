@@ -25,7 +25,7 @@
           :loading="removing === String(picture.id)"
           :disabled="!!removing"
           @click="remove(picture)"
-          ><HeartFilled /> 取消收藏</a-button
+          ><HeartFilled aria-hidden="true" /> 取消收藏</a-button
         >
       </article>
     </div>
