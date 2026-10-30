@@ -38,6 +38,53 @@ class FileManagerTest {
     private PrivatePictureCleanupManager privateCleanup;
     private PictureFileCleanupManager publicCleanup;
 
+    @Test
+    void uploadTimingContainsOnlyStagesElapsedMillisecondsAndSize() {
+        ch.qos.logback.classic.Logger logger = (ch.qos.logback.classic.Logger)
+                org.slf4j.LoggerFactory.getLogger(UploadTiming.class);
+        ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> events =
+                new ch.qos.logback.core.read.ListAppender<>();
+        ch.qos.logback.classic.Level previousLevel = logger.getLevel();
+        logger.setLevel(ch.qos.logback.classic.Level.INFO);
+        events.start(); logger.addAppender(events);
+        try {
+            when(cosManager.putPictureObject(anyString(), any(File.class), any(PicOperations.class)))
+                    .thenReturn(uploadResult());
+            fileManager.uploadPicture(new MockMultipartFile("file", "sensitive-name.jpg", "image/jpeg",
+                    jpegBytes(30000)), "public/123");
+            assertEquals(2, events.list.size());
+            assertTrue(events.list.get(0).getFormattedMessage().matches(
+                    "upload_timing stage=RECEIVE_LOCAL elapsed_ms=[0-9]+ bytes=30000"));
+            assertTrue(events.list.get(1).getFormattedMessage().matches(
+                    "upload_timing stage=PREPARE_VARIANTS elapsed_ms=[0-9]+ bytes=30000"));
+            assertTrue(events.list.stream().allMatch(event -> event.getThrowableProxy() == null));
+        } finally { logger.detachAppender(events); events.stop(); logger.setLevel(previousLevel); }
+    }
+
+    @Test
+    void failedReceiveStillRecordsTimingAndDoesNotReachCos() throws Exception {
+        ch.qos.logback.classic.Logger logger = (ch.qos.logback.classic.Logger)
+                org.slf4j.LoggerFactory.getLogger(UploadTiming.class);
+        ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> events =
+                new ch.qos.logback.core.read.ListAppender<>();
+        ch.qos.logback.classic.Level previousLevel = logger.getLevel();
+        logger.setLevel(ch.qos.logback.classic.Level.INFO);
+        events.start(); logger.addAppender(events);
+        try {
+            org.springframework.web.multipart.MultipartFile file = mock(org.springframework.web.multipart.MultipartFile.class);
+            when(file.isEmpty()).thenReturn(false);
+            when(file.getSize()).thenReturn(30000L);
+            when(file.getOriginalFilename()).thenReturn("test.jpg");
+            org.mockito.Mockito.doThrow(new java.io.IOException("test failure")).when(file).transferTo(any(File.class));
+            assertThrows(BusinessException.class, () -> fileManager.uploadPicture(file, "public/1"));
+            assertEquals(1, events.list.size());
+            assertTrue(events.list.get(0).getFormattedMessage().matches(
+                    "upload_timing stage=RECEIVE_LOCAL elapsed_ms=[0-9]+ bytes=30000"));
+            assertNull(events.list.get(0).getThrowableProxy());
+            org.mockito.Mockito.verifyNoInteractions(cosManager);
+        } finally { logger.detachAppender(events); events.stop(); logger.setLevel(previousLevel); }
+    }
+
     @BeforeEach
     void setUp() {
         fileManager = new FileManager();

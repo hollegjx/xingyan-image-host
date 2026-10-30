@@ -25,7 +25,7 @@ public class CosManager {
         PutObjectRequest request = new PutObjectRequest(bucket, key, file);
         request.setCannedAcl(com.qcloud.cos.model.CannedAccessControlList.Private);
         request.setPicOperations(operations);
-        PutObjectResult result = cosClient.putObject(request);
+        PutObjectResult result = timedUpload(request, file == null ? 0 : file.length());
         // 派生图必须落在已配置为私有读写的桶。对返回的预期派生对象再显式设置 Private。
         if (result != null && result.getCiUploadResult() != null
                 && result.getCiUploadResult().getProcessResults() != null
@@ -37,11 +37,26 @@ public class CosManager {
                 boolean expected = operations.getRules().stream()
                         .anyMatch(rule -> ("/" + outputKey).equals(rule.getFileId()) && bucket.equals(rule.getBucket()));
                 if (expected) {
-                    cosClient.setObjectAcl(bucket, outputKey, com.qcloud.cos.model.CannedAccessControlList.Private);
+                    long aclStarted = System.nanoTime();
+                    try {
+                        cosClient.setObjectAcl(bucket, outputKey, com.qcloud.cos.model.CannedAccessControlList.Private);
+                    } finally {
+                        UploadTiming.record(UploadTiming.Stage.PRIVATE_ACL, aclStarted,
+                                object.getSize() == null ? 0 : object.getSize());
+                    }
                 }
             }
         }
         return result;
+    }
+
+    private PutObjectResult timedUpload(PutObjectRequest request, long bytes) {
+        long started = System.nanoTime();
+        try {
+            return cosClient.putObject(request);
+        } finally {
+            UploadTiming.record(UploadTiming.Stage.COS_UPLOAD, started, bytes);
+        }
     }
 
     @Resource
@@ -56,7 +71,7 @@ public class CosManager {
     public PutObjectResult putObject(String key, File file) {
         PutObjectRequest putObjectRequest = new PutObjectRequest(
                 cosClientConfig.getBucket(), key, file);
-        return cosClient.putObject(putObjectRequest);
+        return timedUpload(putObjectRequest, file == null ? 0 : file.length());
     }
 
     /**
@@ -77,7 +92,7 @@ public class CosManager {
         if (picOperations != null) {
             putObjectRequest.setPicOperations(picOperations);
         }
-        return cosClient.putObject(putObjectRequest);
+        return timedUpload(putObjectRequest, file == null ? 0 : file.length());
     }
 
     /**
@@ -86,7 +101,7 @@ public class CosManager {
     public PutObjectResult putObject(String key, InputStream inputStream, ObjectMetadata metadata) {
         PutObjectRequest putObjectRequest = new PutObjectRequest(
                 cosClientConfig.getBucket(), key, inputStream, metadata);
-        return cosClient.putObject(putObjectRequest);
+        return timedUpload(putObjectRequest, metadata == null ? 0 : metadata.getContentLength());
     }
 
     /**

@@ -14,6 +14,7 @@ import learn.gjx.tuku1.exception.BusinessException;
 import learn.gjx.tuku1.exception.ErrorCode;
 import learn.gjx.tuku1.manager.BingImageSearchManager;
 import learn.gjx.tuku1.manager.FileManager;
+import learn.gjx.tuku1.manager.UploadTiming;
 import learn.gjx.tuku1.manager.AiApplyClaim;
 import learn.gjx.tuku1.manager.AiTaskStore;
 import learn.gjx.tuku1.manager.PictureFileCleanupManager;
@@ -429,9 +430,16 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         picture.setIntroduction(introduction); picture.setCategory(category);
         picture.setTags(tags == null ? null : JSONUtil.toJsonStr(tags));
         picture.setSourceUrl(sourceUrl);
-        Picture saved = claim != null ? privatePictureWriteManager.save(picture, oldPicture, user, editToken, editRevision, claim)
-                : editToken == null && editRevision == null ? privatePictureWriteManager.save(picture, oldPicture, user)
-                : privatePictureWriteManager.save(picture, oldPicture, user, editToken, editRevision);
+        long databaseStarted = System.nanoTime();
+        Picture saved;
+        try {
+            saved = claim != null ? privatePictureWriteManager.save(picture, oldPicture, user, editToken, editRevision, claim)
+                    : editToken == null && editRevision == null ? privatePictureWriteManager.save(picture, oldPicture, user)
+                    : privatePictureWriteManager.save(picture, oldPicture, user, editToken, editRevision);
+        } finally {
+            UploadTiming.record(UploadTiming.Stage.DATABASE, databaseStarted,
+                    uploaded.getPicSize() == null ? 0 : uploaded.getPicSize());
+        }
         PictureVO vo = PictureVO.objToVo(saved);
         // Service 自身也不向调用方暴露 COS 地址；Controller 按实际 context path 补齐。
         protectPrivateUrls(saved, vo, null, user);
@@ -448,21 +456,28 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
                                              String name, String introduction, String category, List<String> tags,
                                              String sourceUrl, boolean completed, User loginUser, AiApplyClaim claim) {
         try {
-            PictureVO pictureVO = transactionTemplate.execute(status -> {
-                Picture current = oldPicture;
-                if (pictureId != null) {
-                    current = baseMapper.selectForUpdate(pictureId);
-                    if (current == null || !Objects.equals(current.getUrl(), oldPicture.getUrl())
-                            || !Objects.equals(current.getOriginalUrl(), oldPicture.getOriginalUrl()))
-                        throw new BusinessException(ErrorCode.OPERATION_ERROR, "图片已变更，请刷新后重试");
-                    pictureAccessManager.checkEdit(current, loginUser);
-                }
-                if (claim != null) aiTaskStore.commitApply(claim, current, loginUser.getId());
-                pictureFileCleanupManager.adopt(Arrays.asList(uploadResult.getOriginalUrl(), uploadResult.getUrl(), uploadResult.getThumbnailUrl()));
-                PictureVO saved = saveUploadedPicture(uploadResult, current, pictureId, name, introduction, category, tags, sourceUrl, completed, loginUser);
-                if (current != null) cleanupManagedPictureFiles(current, "replace-picture", uploadResult.getOriginalUrl(), uploadResult.getUrl(), uploadResult.getThumbnailUrl());
-                return saved;
-            });
+            long databaseStarted = System.nanoTime();
+            PictureVO pictureVO;
+            try {
+                pictureVO = transactionTemplate.execute(status -> {
+                    Picture current = oldPicture;
+                    if (pictureId != null) {
+                        current = baseMapper.selectForUpdate(pictureId);
+                        if (current == null || !Objects.equals(current.getUrl(), oldPicture.getUrl())
+                                || !Objects.equals(current.getOriginalUrl(), oldPicture.getOriginalUrl()))
+                            throw new BusinessException(ErrorCode.OPERATION_ERROR, "图片已变更，请刷新后重试");
+                        pictureAccessManager.checkEdit(current, loginUser);
+                    }
+                    if (claim != null) aiTaskStore.commitApply(claim, current, loginUser.getId());
+                    pictureFileCleanupManager.adopt(Arrays.asList(uploadResult.getOriginalUrl(), uploadResult.getUrl(), uploadResult.getThumbnailUrl()));
+                    PictureVO saved = saveUploadedPicture(uploadResult, current, pictureId, name, introduction, category, tags, sourceUrl, completed, loginUser);
+                    if (current != null) cleanupManagedPictureFiles(current, "replace-picture", uploadResult.getOriginalUrl(), uploadResult.getUrl(), uploadResult.getThumbnailUrl());
+                    return saved;
+                });
+            } finally {
+                UploadTiming.record(UploadTiming.Stage.DATABASE, databaseStarted,
+                        uploadResult == null || uploadResult.getPicSize() == null ? 0 : uploadResult.getPicSize());
+            }
             if (pictureVO == null) {
                 throw new BusinessException(ErrorCode.OPERATION_ERROR, "保存图片失败");
             }

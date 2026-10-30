@@ -157,7 +157,12 @@ public class FileManager {
         try {
             // COS SDK 需要先写入临时文件
             tempFile = File.createTempFile("upload_", "." + suffix);
-            multipartFile.transferTo(tempFile);
+            long receiveStarted = System.nanoTime();
+            try {
+                multipartFile.transferTo(tempFile);
+            } finally {
+                UploadTiming.record(UploadTiming.Stage.RECEIVE_LOCAL, receiveStarted, multipartFile.getSize());
+            }
             return uploadLocalPicture(tempFile, originalFilename, tempFile.length(), uploadPathPrefix, spaceId);
         } catch (IOException e) {
             log.error("上传图片失败, originalFilename: {}", originalFilename, e);
@@ -187,7 +192,14 @@ public class FileManager {
 
     private PictureUploadResult uploadPictureByUrl(String fileUrl, String uploadPathPrefix, Long spaceId) {
         URL url = validateRemotePictureUrl(fileUrl);
-        RemotePictureFile remotePictureFile = downloadRemotePicture(url);
+        long receiveStarted = System.nanoTime();
+        RemotePictureFile remotePictureFile = null;
+        try {
+            remotePictureFile = downloadRemotePicture(url);
+        } finally {
+            UploadTiming.record(UploadTiming.Stage.RECEIVE_REMOTE, receiveStarted,
+                    remotePictureFile == null ? 0 : remotePictureFile.getFileSize());
+        }
         File tempFile = remotePictureFile.getFile();
         try {
             return uploadLocalPicture(tempFile, remotePictureFile.getOriginalFilename(),
@@ -213,7 +225,13 @@ public class FileManager {
         String uploadPath = String.format("%s/%s", uploadPathPrefix, uploadFilename);
 
         String bucket = spaceId == null ? cosClientConfig.getBucket() : privateStorage.bucket(spaceId);
-        DerivativePlan derivativePlan = buildDerivativePlan(uploadPath, suffix, fileSize, bucket);
+        long variantsStarted = System.nanoTime();
+        DerivativePlan derivativePlan;
+        try {
+            derivativePlan = buildDerivativePlan(uploadPath, suffix, fileSize, bucket);
+        } finally {
+            UploadTiming.record(UploadTiming.Stage.PREPARE_VARIANTS, variantsStarted, fileSize);
+        }
         List<String> plannedUrls = Arrays.asList(uploadPath, derivativePlan.getDisplayKey(), derivativePlan.getThumbnailKey())
                 .stream().filter(StrUtil::isNotBlank).map(key -> targetUrl(key, spaceId)).collect(Collectors.toList());
         if (spaceId != null) {
