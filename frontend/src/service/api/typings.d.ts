@@ -1,4 +1,7 @@
 declare namespace API {
+  type PictureDetailVO = PictureVO & { favoriteCount?: number; favorited?: boolean }
+  type BaseResponsePictureDetailVO_ = { code?: number; message?: string; data?: PictureDetailVO }
+
   type AiOutpaintingRequest = {
     externalProcessingConsent?: boolean
     pictureId?: string | number

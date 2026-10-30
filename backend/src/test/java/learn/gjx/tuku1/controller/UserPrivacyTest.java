@@ -52,6 +52,7 @@ class UserPrivacyTest {
         doReturn(picture).when(pictures).getById(8L);
         PictureController pictureController = new PictureController();
         ReflectionTestUtils.setField(pictureController, "pictureService", pictures);
+        ReflectionTestUtils.setField(pictureController, "pictureFavoriteService", mock(learn.gjx.tuku1.service.PictureFavoriteService.class));
         mvc = MockMvcBuilders.standaloneSetup((Object) factory.getProxy(), pictureController)
                 .setControllerAdvice(new GlobalExceptionHandler()).build();
     }

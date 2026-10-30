@@ -14,6 +14,9 @@ import learn.gjx.tuku1.model.enums.UserRoleEnum;
 import learn.gjx.tuku1.model.vo.PictureProcessResult;
 import learn.gjx.tuku1.model.vo.PictureTagCategory;
 import learn.gjx.tuku1.model.vo.PictureVO;
+import learn.gjx.tuku1.model.vo.PictureDetailVO;
+import learn.gjx.tuku1.service.PictureFavoriteService;
+import org.springframework.beans.BeanUtils;
 import learn.gjx.tuku1.service.PictureService;
 import learn.gjx.tuku1.service.UserService;
 import learn.gjx.tuku1.manager.PrivatePictureFileManager;
@@ -36,6 +39,9 @@ public class PictureController {
 
     @Resource
     private UserService userService;
+
+    @Resource
+    private PictureFavoriteService pictureFavoriteService;
 
     @Resource
     private PrivatePictureFileManager privatePictureFileManager;
@@ -168,14 +174,17 @@ public class PictureController {
      * 根据 ID 获取图片（用户可用，脱敏）
      */
     @GetMapping("/get/vo")
-    public BaseResponse<PictureVO> getPictureVOById(long id, HttpServletRequest request, HttpServletResponse response) {
+    public BaseResponse<PictureDetailVO> getPictureVOById(long id, HttpServletRequest request, HttpServletResponse response) {
         response.setHeader("Cache-Control", "private, no-store");
         response.setHeader("Vary", "Cookie");
         ThrowUtils.throwIf(id <= 0, ErrorCode.PARAMS_ERROR, "图片 ID 不合法");
         Picture picture = pictureService.getById(id);
         ThrowUtils.throwIf(picture == null, ErrorCode.NOT_FOUND_ERROR, "图片不存在");
         // Service also protects direct calls and checks private ownership before public review status.
-        return BaseResponse.success(pictureService.getPictureVO(picture, request));
+        PictureDetailVO detail = new PictureDetailVO();
+        BeanUtils.copyProperties(pictureService.getPictureVO(picture, request), detail);
+        pictureFavoriteService.decorate(detail, picture, request);
+        return BaseResponse.success(detail);
     }
 
     /**

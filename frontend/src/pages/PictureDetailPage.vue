@@ -70,6 +70,10 @@
             <template #icon><ShareAltOutlined /></template>
             分享
           </a-button>
+          <a-button v-if="canFavorite" :loading="favoriteBusy" :aria-pressed="!!picture.favorited" @click="toggleFavorite">
+            <template #icon><HeartFilled v-if="picture.favorited" /><HeartOutlined v-else /></template>
+            {{ picture.favorited ? '已收藏' : '收藏' }} · {{ picture.favoriteCount ?? 0 }}
+          </a-button>
           <PictureSearchButton :picture="picture" />
         </div>
         <!-- 操作按钮（仅作者或管理员可见） -->
@@ -100,8 +104,9 @@
 import { ref, watch, onBeforeUnmount, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { message, Modal } from 'ant-design-vue'
-import { EditOutlined, DeleteOutlined, LeftOutlined, ShareAltOutlined } from '@ant-design/icons-vue'
+import { EditOutlined, DeleteOutlined, LeftOutlined, ShareAltOutlined, HeartOutlined, HeartFilled } from '@ant-design/icons-vue'
 import { getPictureVoByIdUsingGet, deletePictureUsingPost } from '@/service/api/pictureController'
+import { setPictureFavorite } from '@/service/api/pictureFavoriteController'
 import { useLoginUserStore } from '@/stores/useLoginUserStore'
 import { getSpaceVoUsingGet } from '@/service/api/spaceController'
 import {
@@ -126,7 +131,7 @@ const props = defineProps<{
   id: string
 }>()
 
-const picture = ref<API.PictureVO>({})
+const picture = ref<API.PictureDetailVO>({})
 const loading = ref(false)
 const error = ref('')
 const authorizedSpace = ref<API.SpaceVO>()
@@ -140,6 +145,29 @@ const dimensions = computed(() => {
   return `${width} × ${height} · ${(width / height).toFixed(2)} : 1`
 })
 let sequence = 0
+const favoriteBusy = ref(false)
+const canFavorite = computed(() => picture.value.spaceId == null && picture.value.uploadStatus === 1 && picture.value.reviewStatus === 1)
+const toggleFavorite = async () => {
+  if (!canFavorite.value || favoriteBusy.value || !picture.value.id) return
+  if (!loginUserStore.loginUser.id) {
+    await router.push({ path: '/user/login', query: { redirect: `/picture/${props.id}` } })
+    return
+  }
+  const ticket = sequence
+  const id = picture.value.id
+  favoriteBusy.value = true
+  try {
+    const result = await setPictureFavorite(id, !picture.value.favorited)
+    if (ticket !== sequence) return
+    if (result.code !== 0 || !result.data) throw new Error(result.message || '收藏操作失败')
+    picture.value.favoriteCount = result.data.favoriteCount
+    picture.value.favorited = result.data.favorited
+  } catch (e) {
+    if (ticket === sequence) message.error(e instanceof Error ? e.message : '收藏操作失败，请重试')
+  } finally {
+    if (ticket === sequence) favoriteBusy.value = false
+  }
+}
 
 // 判断是否有编辑/删除权限（作者本人或管理员）
 const canEdit = computed(() => {
@@ -165,6 +193,7 @@ const goBack = () => {
 // 获取图片详情
 const fetchPictureDetail = async () => {
   const ticket = ++sequence
+  favoriteBusy.value = false
   picture.value = {}
   shareOpen.value = false
   authorizedSpace.value = undefined

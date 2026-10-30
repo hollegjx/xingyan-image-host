@@ -63,6 +63,7 @@
                 ><SettingOutlined /> 偏好与设置</a-menu-item
               >
               <a-menu-divider />
+              <a-menu-item key="favorites" @click="router.push('/user/favorites')"><HeartOutlined /> 我的收藏</a-menu-item>
               <a-menu-item key="pictures" @click="router.push('/picture/mine')"
                 ><PictureOutlined /> 我的投稿</a-menu-item
               >
@@ -102,6 +103,7 @@ import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   AppstoreOutlined,
+  HeartOutlined,
   PictureOutlined,
   FolderOutlined,
   TeamOutlined,

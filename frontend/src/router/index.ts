@@ -8,6 +8,11 @@ const router = createRouter({
   scrollBehavior,
   routes: [
     {
+      path: '/user/favorites', name: 'my-favorites',
+      component: () => import('../pages/user/MyFavoritesPage.vue'),
+      meta: { requiresLogin: true },
+    },
+    {
       path: '/space/invite', name: 'team-invite',
       component: () => import('../pages/space/TeamInvitePage.vue'),
     },

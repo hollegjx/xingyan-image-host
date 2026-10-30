@@ -1304,6 +1304,7 @@ class PrivatePictureAccessIntegrationTest {
         @Bean
         static org.springframework.beans.factory.config.BeanFactoryPostProcessor collaborators() {
             return factory -> {
+                factory.registerSingleton("pictureFavoriteService", mock(learn.gjx.tuku1.service.PictureFavoriteService.class));
                 factory.registerSingleton("fileManager", mock(FileManager.class));
                 factory.registerSingleton("pictureFileCleanupManager", mock(PictureFileCleanupManager.class));
                 factory.registerSingleton("bingImageSearchManager", mock(BingImageSearchManager.class));
