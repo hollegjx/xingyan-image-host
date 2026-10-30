@@ -1,5 +1,11 @@
 package learn.gjx.tuku1.manager;
 
+import learn.gjx.tuku1.model.entity.Picture;
+import learn.gjx.tuku1.manager.space.PrivatePictureWriteManager;
+import java.util.Map;
+import java.util.LinkedHashMap;
+import java.util.UUID;
+
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.io.FileUtil;
@@ -93,6 +99,35 @@ public class FileManager {
 
     @Resource
     private CosClientConfig cosClientConfig;
+
+    /** 投稿复制所有实际使用的变体；原图与展示图相同的对象只复制一次。 */
+    public Picture copyPrivateForSubmission(
+            Picture source, Long actorId) {
+        if (actorId == null || actorId <= 0) throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
+        privateStorage.validatedKey(source.getSpaceId(), source.getOriginalUrl());
+        privateStorage.validatedKey(source.getSpaceId(), source.getUrl());
+        Map<String, String> copies = new LinkedHashMap<>();
+        for (String url : PrivatePictureWriteManager.files(source)) {
+            String key = privateStorage.validatedKey(source.getSpaceId(), url);
+            copies.put(url, "public/" + actorId + "/" + UUID.randomUUID().toString().replace("-", "")
+                    + key.substring(key.lastIndexOf('.')));
+        }
+        List<String> targets = copies.values().stream().map(this::getFileUrl).collect(Collectors.toList());
+        publicCleanup.registerUpload(targets);
+        try {
+            for (Map.Entry<String, String> entry : copies.entrySet())
+                privateStorage.copyToPublic(source, entry.getKey(), entry.getValue());
+            Picture result = new Picture();
+            result.setOriginalUrl(getFileUrl(copies.get(source.getOriginalUrl())));
+            result.setUrl(getFileUrl(copies.get(source.getUrl())));
+            if (copies.containsKey(source.getThumbnailUrl())) result.setThumbnailUrl(getFileUrl(copies.get(source.getThumbnailUrl())));
+            return result;
+        } catch (RuntimeException error) {
+            for (String url : targets) publicCleanup.deleteQuietly(url, "submission-copy-failed");
+            log.warn("投稿文件复制失败，已登记公共文件补偿");
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "投稿文件复制失败，请重试");
+        }
+    }
 
     /**
      * 上传图片：完成校验、生成 COS Key，并解析数据万象返回的元信息。
@@ -650,7 +685,7 @@ public class FileManager {
                 throw new BusinessException(ErrorCode.PARAMS_ERROR, "输出文件名不合法");
             }
         }
-        String requestDir = "public/processing/" + java.util.UUID.randomUUID();
+        String requestDir = "public/processing/" + UUID.randomUUID();
         PicOperations picOperations = buildPicOperations(validRules, requestDir + "/" + directory, FileUtil.getSuffix(sourceKey));
         String uploadKey = requestDir + "/source." + FileUtil.getSuffix(sourceKey);
         List<String> planned = new ArrayList<>();planned.add(getFileUrl(uploadKey));

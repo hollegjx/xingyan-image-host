@@ -1,5 +1,7 @@
 package learn.gjx.tuku1.service;
 
+import learn.gjx.tuku1.model.vo.PrivatePictureLinkVO;
+
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
@@ -25,6 +27,12 @@ import java.util.Date;
  * picture 表相关的核心服务接口，包含上传、查询与图片处理能力。
  */
 public interface PictureService extends IService<Picture> {
+
+    /** 空间主人或团队管理员将私有图片复制为待审核公共投稿。 */
+    long submitPublicPicture(Long pictureId, User user);
+
+    /** 仅签独立展示图，临时凭据不落库。 */
+    PrivatePictureLinkVO temporaryPrivateLink(Long pictureId, Integer hours, User user);
 
     /** 公开列表：统一校验、强制公开状态、Redis 缓存及最新用户信息补全。 */
     Page<PictureVO> listPublicPicturePage(PictureQueryRequest queryRequest, HttpServletRequest request);

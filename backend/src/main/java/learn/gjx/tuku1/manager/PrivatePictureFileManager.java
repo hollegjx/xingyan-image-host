@@ -1,5 +1,18 @@
 package learn.gjx.tuku1.manager;
 
+import java.nio.file.Path;
+import java.nio.file.Files;
+import java.io.OutputStream;
+import java.util.Arrays;
+import java.util.Date;
+import java.net.URL;
+import com.qcloud.cos.model.ObjectMetadata;
+import com.qcloud.cos.model.PutObjectRequest;
+import com.qcloud.cos.model.GeneratePresignedUrlRequest;
+import com.qcloud.cos.http.HttpMethodName;
+import learn.gjx.tuku1.model.vo.PrivatePictureLinkVO;
+import lombok.extern.slf4j.Slf4j;
+
 import com.qcloud.cos.COSClient;
 import com.qcloud.cos.model.COSObject;
 import com.qcloud.cos.model.GetObjectRequest;
@@ -19,6 +32,7 @@ import java.util.Locale;
 
 /** Streams authorized objects; never redirects or discloses a reusable COS URL to a client. */
 @Component
+@Slf4j
 public class PrivatePictureFileManager {
     @Resource
     private COSClient cosClient;
@@ -26,6 +40,71 @@ public class PrivatePictureFileManager {
     private CosClientConfig cosClientConfig;
     @Resource
     private PrivatePictureStorageProperties properties;
+
+    /** 逐桶经已配置的端点传输，不依赖跨地域 CopyObject 的源地域推断。 */
+    public void copyToPublic(Picture picture, String sourceUrl, String targetKey) {
+        String key = validatedKey(picture.getSpaceId(), sourceUrl);
+        if (!targetKey.matches("public/[1-9][0-9]*/[A-Za-z0-9_-]+\\.(jpg|jpeg|png|webp|gif)"))
+            throw publicationFailure(ErrorCode.PARAMS_ERROR, "投稿目标路径不合法");
+        Path temporary = null;
+        try (COSObject object = cosClient.getObject(new GetObjectRequest(properties.getBucket(), key))) {
+            temporary = Files.createTempFile("submission-", ".image");
+            long length = 0;
+            try (OutputStream output = Files.newOutputStream(temporary)) {
+                byte[] buffer = new byte[8192]; int read;
+                while ((read = object.getObjectContent().read(buffer)) != -1) {
+                    length += read;
+                    if (length > 20 * 1024 * 1024L) throw new IOException("Object too large");
+                    output.write(buffer, 0, read);
+                }
+            }
+            if (length == 0 || length != object.getObjectMetadata().getContentLength()) throw new IOException("Incomplete object");
+            ObjectMetadata metadata = new ObjectMetadata();
+            String extension = key.substring(key.lastIndexOf('.') + 1);
+            metadata.setContentType("image/" + ("jpg".equals(extension) ? "jpeg" : extension));
+            metadata.setContentLength(length);
+            PutObjectRequest put = new PutObjectRequest(
+                    cosClientConfig.getBucket(), targetKey, temporary.toFile());
+            put.setMetadata(metadata);
+            cosClient.putObject(put);
+        } catch (IOException | RuntimeException error) {
+            // 不带 SDK 异常，避免其携带地址、签名或凭据进入日志。
+            throw publicationFailure(ErrorCode.OPERATION_ERROR, "投稿文件复制失败");
+        } finally {
+            if (temporary != null) {
+                try { Files.deleteIfExists(temporary); }
+                catch (IOException ignored) { temporary.toFile().deleteOnExit(); }
+            }
+        }
+    }
+
+    public PrivatePictureLinkVO temporaryDisplayLink(Picture picture, int hours) {
+        if (!Arrays.asList(1, 24, 168).contains(hours))
+            throw publicationFailure(ErrorCode.PARAMS_ERROR, "临时直链有效期不合法");
+        String key = validatedKey(picture.getSpaceId(), picture.getUrl());
+        String original = validatedKey(picture.getSpaceId(), picture.getOriginalUrl());
+        if (key.equals(original)) throw publicationFailure(ErrorCode.OPERATION_ERROR, "这张图片没有独立展示图，不能为原图生成临时直链");
+        if (!cosClientConfig.isPrivateStorageAccelerateEnabled())
+            throw publicationFailure(ErrorCode.OPERATION_ERROR, "私有桶加速尚未开启");
+        Date expires = new Date(System.currentTimeMillis() + hours * 3600000L);
+        try {
+            GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(
+                    properties.getBucket(), key, HttpMethodName.GET);
+            request.setExpiration(expires);
+            URL url = cosClient.generatePresignedUrl(request);
+            if (!"https".equals(url.getProtocol()) || !url.getHost().equals(properties.getBucket() + ".cos.accelerate.myqcloud.com")
+                    || url.getPort() != -1 || url.getQuery() == null)
+                throw new IllegalStateException("Unexpected signing endpoint");
+            return new PrivatePictureLinkVO(url.toExternalForm(), expires);
+        } catch (RuntimeException error) {
+            throw publicationFailure(ErrorCode.OPERATION_ERROR, "临时直链生成失败");
+        }
+    }
+
+    private BusinessException publicationFailure(ErrorCode code, String message) {
+        log.warn("空间图片文件操作被拒绝：{}", message);
+        return new BusinessException(code, message);
+    }
 
     public void write(Picture picture, String variant, HttpServletResponse response) throws IOException {
         String storedUrl;

@@ -1,5 +1,8 @@
 package learn.gjx.tuku1.service.impl;
 
+import learn.gjx.tuku1.model.vo.PrivatePictureLinkVO;
+import learn.gjx.tuku1.service.PictureServicePublication;
+
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
@@ -92,6 +95,19 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
 
     @Resource
     private PrivatePictureWriteManager privatePictureWriteManager;
+
+    @Resource
+    private PictureServicePublication pictureServicePublication;
+
+    @Override
+    public long submitPublicPicture(Long pictureId, User user) {
+        return pictureServicePublication.submit(pictureId, user);
+    }
+
+    @Override
+    public PrivatePictureLinkVO temporaryPrivateLink(Long pictureId, Integer hours, User user) {
+        return pictureServicePublication.temporaryLink(pictureId, hours, user);
+    }
 
     @Override
     public Page<PictureVO> listSpacePicturePage(PictureQueryRequest input, HttpServletRequest request) {

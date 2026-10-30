@@ -1,5 +1,7 @@
 package learn.gjx.tuku1.controller;
 
+import learn.gjx.tuku1.model.vo.PrivatePictureLinkVO;
+
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import learn.gjx.tuku1.annotation.AuthCheck;
 import learn.gjx.tuku1.common.BaseResponse;
@@ -45,6 +47,30 @@ public class PictureController {
 
     @Resource
     private PrivatePictureFileManager privatePictureFileManager;
+
+    /** 复制空间图片形成新的待审核公共投稿，原图保持不变。 */
+    @PostMapping("/submit/public")
+    @AuthCheck
+    public BaseResponse<Long> submitPublic(@RequestBody PicturePublishRequest input,
+                                          HttpServletRequest request, HttpServletResponse response) {
+        publicationHeaders(response);
+        return BaseResponse.success(pictureService.submitPublicPicture(input.getPictureId(), userService.getLoginUser(request)));
+    }
+
+    /** 仅在本次响应返回展示图临时凭据，不缓存、不重定向。 */
+    @PostMapping("/private/link")
+    @AuthCheck
+    public BaseResponse<PrivatePictureLinkVO> privateLink(
+            @RequestBody PrivatePictureLinkRequest input, HttpServletRequest request, HttpServletResponse response) {
+        publicationHeaders(response);
+        return BaseResponse.success(pictureService.temporaryPrivateLink(input.getPictureId(), input.getValidHours(), userService.getLoginUser(request)));
+    }
+
+    private void publicationHeaders(HttpServletResponse response) {
+        response.setHeader("Cache-Control", "private, no-store");
+        response.setHeader("Vary", "Cookie");
+        response.setHeader("Referrer-Policy", "no-referrer");
+    }
 
     /** Each image fetch checks the current session and space ownership; no signed URL redirects. */
     @GetMapping("/private/file")

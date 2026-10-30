@@ -75,6 +75,16 @@
             {{ picture.favorited ? '已收藏' : '收藏' }} · {{ picture.favoriteCount ?? 0 }}
           </a-button>
           <PictureSearchButton :picture="picture" />
+          <a-dropdown v-if="canPublish" :trigger="['click']">
+            <a-button>更多 ···</a-button>
+            <template #overlay
+              ><a-menu
+                ><a-menu-item key="submit" @click="submitOpen = true"
+                  >投稿到公共图库</a-menu-item
+                ></a-menu
+              ></template
+            >
+          </a-dropdown>
         </div>
         <!-- 操作按钮（仅作者或管理员可见） -->
         <div v-if="canEdit" class="detail-actions detail-actions--owner">
@@ -96,7 +106,12 @@
         </div>
       </aside>
     </div>
-    <PictureShareModal v-model:open="shareOpen" :picture="picture" />
+    <PictureShareModal
+      v-model:open="shareOpen"
+      :picture="picture"
+      :can-generate-private-link="canPublish"
+    />
+    <PictureSubmitModal v-model:open="submitOpen" :picture="picture" />
   </div>
 </template>
 
@@ -118,6 +133,7 @@ import {
 } from '@/utils/space'
 import PictureSearchButton from '@/components/PictureSearchButton.vue'
 import PictureShareModal from '@/components/PictureShareModal.vue'
+import PictureSubmitModal from '@/components/PictureSubmitModal.vue'
 import { normalizePictureColor } from '@/utils/pictureExtensions'
 import { returnToGallery } from '@/utils/galleryNavigation'
 import { useNavigationStore } from '@/stores/useNavigationStore'
@@ -136,6 +152,15 @@ const loading = ref(false)
 const error = ref('')
 const authorizedSpace = ref<API.SpaceVO>()
 const shareOpen = ref(false)
+const submitOpen = ref(false)
+const canPublish = computed(
+  () =>
+    picture.value.spaceId != null &&
+    picture.value.uploadStatus === 1 &&
+    (authorizedSpace.value?.spaceType === 1
+      ? hasPermission(authorizedSpace.value, permissions.members)
+      : sameId(authorizedSpace.value?.userId, loginUserStore.loginUser.id)),
+)
 const picColor = computed(() => normalizePictureColor(picture.value.picColor))
 const authorInitial = computed(() => (picture.value.user?.userName || '匿').slice(0, 1))
 // 宽高合并展示，宽高比保留两位小数，避免出现长浮点数
@@ -196,6 +221,7 @@ const fetchPictureDetail = async () => {
   favoriteBusy.value = false
   picture.value = {}
   shareOpen.value = false
+  submitOpen.value = false
   authorizedSpace.value = undefined
   error.value = ''
   loading.value = true

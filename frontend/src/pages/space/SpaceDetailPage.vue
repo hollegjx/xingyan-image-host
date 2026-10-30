@@ -201,7 +201,13 @@
                       ><EditOutlined /> 编辑 / 替换</a-menu-item
                     >
                     <a-menu-item key="share" @click="share(item)"
-                      ><ExportOutlined /> 分享</a-menu-item
+                      ><ExportOutlined aria-hidden="true" /> 分享</a-menu-item
+                    >
+                    <a-menu-item
+                      v-if="canPublish && item.uploadStatus === 1"
+                      key="submit"
+                      @click="openSubmission(item)"
+                      >投稿到公共图库</a-menu-item
                     >
                     <a-menu-divider v-if="can('delete')" />
                     <a-menu-item v-if="can('delete')" key="delete" danger @click="remove(item)"
@@ -272,7 +278,12 @@
         </section>
       </section>
     </a-drawer>
-    <PictureShareModal v-model:open="shareOpen" :picture="sharePicture" />
+    <PictureShareModal
+      v-model:open="shareOpen"
+      :picture="sharePicture"
+      :can-generate-private-link="canPublish"
+    />
+    <PictureSubmitModal v-model:open="submitOpen" :picture="submitPicture" />
     <BatchEditPictureModal
       v-if="batchOpen"
       v-model:open="batchOpen"
@@ -331,6 +342,8 @@ import SpaceUsage from '@/components/SpaceUsage.vue'
 import PictureThumbnail from '@/components/PictureThumbnail.vue'
 import PictureSearchForm from '@/components/PictureSearchForm.vue'
 import PictureShareModal from '@/components/PictureShareModal.vue'
+import PictureSubmitModal from '@/components/PictureSubmitModal.vue'
+import { useLoginUserStore } from '@/stores/useLoginUserStore'
 import BatchEditPictureModal from '@/components/BatchEditPictureModal.vue'
 import { searchPictureByColorUsingPost } from '@/service/api/pictureExtensionController'
 import type { PictureSearchFilters, PictureSearchValues } from '@/utils/pictureSearch'
@@ -357,6 +370,12 @@ type SpaceView = {
 }
 const restoredForm = ref<SearchFormState>()
 const space = ref<API.SpaceVO>()
+const loginUserStore = useLoginUserStore()
+const canPublish = computed(() =>
+  space.value?.spaceType === 1
+    ? hasPermission(space.value, permissions.members)
+    : sameId(space.value?.userId, loginUserStore.loginUser.id),
+)
 const can = (action: keyof typeof permissions) => hasPermission(space.value, permissions[action])
 const pictures = ref<API.PictureVO[]>([])
 const loading = ref(false)
@@ -384,6 +403,8 @@ const selectedIds = ref<string[]>([])
 const batchOpen = ref(false)
 const batchPictures = ref<API.PictureVO[]>([])
 const shareOpen = ref(false)
+const submitOpen = ref(false)
+const submitPicture = ref<API.PictureVO>()
 const sharePicture = ref<API.PictureVO>()
 let sequence = 0
 function rememberView() {
@@ -408,6 +429,11 @@ function finishSelection() {
 function share(item: API.PictureVO) {
   sharePicture.value = item
   shareOpen.value = true
+}
+function openSubmission(item: API.PictureVO) {
+  if (!canPublish.value || item.uploadStatus !== 1) return
+  submitPicture.value = item
+  submitOpen.value = true
 }
 function selectAll(checked: boolean) {
   selectedIds.value = checked ? pictures.value.map((item) => String(item.id)) : []
@@ -458,6 +484,8 @@ async function load() {
   selectedIds.value = []
   batchOpen.value = false
   shareOpen.value = false
+  submitOpen.value = false
+  submitPicture.value = undefined
   error.value = ''
   // Keep the form mounted on a same-space refresh so entered/applied filters survive pagination.
   if (!sameId(space.value?.id, id)) space.value = undefined

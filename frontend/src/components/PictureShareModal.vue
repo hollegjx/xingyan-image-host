@@ -5,7 +5,7 @@
       type="warning"
       show-icon
       message="空间里的图片没有公开直链"
-      description="下面的链接只有能进入这个空间的人登录后才能打开。需要直链或 Markdown 外链时，请把图片上传到公共图库，审核通过后就能在这里复制。"
+      description="本站详情页链接需要登录并具有空间权限；主人或团队管理员可另行生成限时的展示图直链。"
     />
     <a-alert
       v-else-if="picture?.uploadStatus !== 1 || picture?.reviewStatus !== 1"
@@ -19,7 +19,38 @@
       <a-input id="picture-share-link" :value="link" readonly @focus="selectLink" />
       <a-button class="copy-button" :loading="copying" @click="copy">复制链接</a-button>
       <p role="status">{{ copyStatus }}</p>
-      <!-- 只为已公开的公共图片提供直链，私有图片的地址带访问签名，绝不展示 -->
+      <section
+        v-if="canGeneratePrivateLink && picture?.spaceId != null && picture?.uploadStatus === 1"
+        class="embed"
+        aria-label="私有图片临时直链"
+      >
+        <a-alert
+          type="warning"
+          show-icon
+          message="拿到链接的人在有效期内都能看到这张图"
+          description="只分享独立展示图，不提供原图。链接到期前无法通过撤销团队成员收回，请谨慎转发。"
+        />
+        <label for="private-link-hours">有效期</label>
+        <select id="private-link-hours" v-model.number="validHours" @change="clearTemporaryLink">
+          <option :value="1">1 小时</option>
+          <option :value="24">24 小时</option>
+          <option :value="168">7 天</option>
+        </select>
+        <a-button :loading="generating" @click="generateTemporaryLink">生成临时直链</a-button>
+        <template v-if="temporaryUrl">
+          <a-input
+            id="private-temporary-link"
+            :value="temporaryUrl"
+            readonly
+            aria-label="临时直链"
+            @focus="selectLink"
+          />
+          <p>到期时间：{{ expiresAt }}</p>
+          <a-button @click="copyTemporaryLink">复制临时直链</a-button>
+        </template>
+        <p role="status">{{ temporaryStatus }}</p>
+      </section>
+      <!-- 永久直链只针对审核通过的公共图片。 -->
       <section v-if="directUrl" class="embed" aria-label="图片直链与引用">
         <span class="embed-title">直链与引用</span>
         <a-segmented v-model:value="format" :options="formatOptions" block />
@@ -49,7 +80,12 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { pictureShareLink } from '@/utils/pictureExtensions'
-const props = defineProps<{ open: boolean; picture?: API.PictureVO }>()
+import { generatePrivatePictureLink } from '@/service/api/picturePublicationController'
+const props = defineProps<{
+  open: boolean
+  picture?: API.PictureVO
+  canGeneratePrivateLink?: boolean
+}>()
 defineEmits<{ 'update:open': [value: boolean] }>()
 const copying = ref(false)
 const copyStatus = ref('')
@@ -72,6 +108,51 @@ const formatOptions: { label: string; value: EmbedFormat }[] = [
 ]
 const format = ref<EmbedFormat>('url')
 const embedStatus = ref('')
+const validHours = ref(1)
+const temporaryUrl = ref('')
+const expiresAt = ref('')
+const generating = ref(false)
+const temporaryStatus = ref('')
+let temporarySequence = 0
+function clearTemporaryLink() {
+  temporarySequence++
+  temporaryUrl.value = ''
+  expiresAt.value = ''
+  temporaryStatus.value = ''
+  generating.value = false
+}
+watch(() => [props.open, props.picture?.id, props.canGeneratePrivateLink], clearTemporaryLink)
+async function generateTemporaryLink() {
+  if (!props.open || !props.canGeneratePrivateLink || !props.picture?.id || generating.value) return
+  clearTemporaryLink()
+  const ticket = temporarySequence
+  generating.value = true
+  try {
+    const result = await generatePrivatePictureLink(props.picture.id, validHours.value)
+    if (ticket !== temporarySequence) return
+    if (result.code !== 0 || !result.data?.url) {
+      temporaryStatus.value = result.message || '生成失败，请重试'
+      return
+    }
+    temporaryUrl.value = result.data.url
+    expiresAt.value = new Date(result.data.expiresAt).toLocaleString()
+  } catch {
+    if (ticket === temporarySequence) temporaryStatus.value = '生成失败，请重试'
+  } finally {
+    if (ticket === temporarySequence) generating.value = false
+  }
+}
+async function copyTemporaryLink() {
+  const value = temporaryUrl.value
+  const ticket = temporarySequence
+  if (!value) return
+  try {
+    await navigator.clipboard.writeText(value)
+    if (ticket === temporarySequence) temporaryStatus.value = '临时直链已复制'
+  } catch {
+    if (ticket === temporarySequence) temporaryStatus.value = '自动复制失败，请手动复制'
+  }
+}
 const formatLabel = computed(() => formatOptions.find((o) => o.value === format.value)!.label)
 const directUrl = computed(() => {
   const picture = props.picture

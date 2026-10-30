@@ -619,6 +619,7 @@ class PublicPictureCacheIntegrationTest {
                 factory.registerSingleton("bingImageSearchManager", mock(BingImageSearchManager.class));
                 factory.registerSingleton("privatePictureWriteManager", mock(learn.gjx.tuku1.manager.space.PrivatePictureWriteManager.class));
                 factory.registerSingleton("aiTaskStore", mock(learn.gjx.tuku1.manager.AiTaskStore.class));
+                factory.registerSingleton("pictureServicePublication", mock(learn.gjx.tuku1.service.PictureServicePublication.class));
             };
         }
     }
