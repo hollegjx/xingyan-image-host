@@ -91,7 +91,8 @@ async function render() {
   }
   const options: EChartsCoreOption = {
     animation: false,
-    color: ['#167d91', '#5470c6', '#e9a23b', '#8e6bbf', '#49a385', '#da7080'],
+    // 与界面一致的克制配色：墨色为主，辅以低饱和的沙、灰蓝、灰绿
+    color: ['#1d1d1f', '#86868b', '#c7c7cc', '#c4a77d', '#7f9cb5', '#9db39a'],
     // 标签由用户输入，禁用 HTML tooltip，避免把标签当作 HTML 渲染。
     tooltip: {
       trigger: props.kind === 'pie' ? 'item' : 'axis',
@@ -159,7 +160,7 @@ onBeforeUnmount(() => {
 }
 summary {
   cursor: pointer;
-  color: #167d91;
+  color: var(--ink);
   margin: 8px 0;
 }
 .table-scroll {

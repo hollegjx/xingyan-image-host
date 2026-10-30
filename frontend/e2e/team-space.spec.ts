@@ -176,7 +176,7 @@ test('member add/remove retains Long IDs and never offers creator removal; mobil
   await page.goto(`/space/${sid}/members`)
   await expect(page.getByText('创建者', { exact: true }).first()).toBeVisible()
   const owner = page
-    .locator('.member-list .ant-card')
+    .locator('.member-list .member-row')
     .filter({ has: page.getByText('创建者', { exact: true }) })
   await expect(owner.getByRole('button', { name: '移除成员' })).toHaveCount(0)
   await page.getByPlaceholder('粘贴完整用户 ID').fill('9007199254741007')
@@ -188,7 +188,7 @@ test('member add/remove retains Long IDs and never offers creator removal; mobil
     spaceRole: 'viewer',
   })
   await page
-    .locator('.member-list .ant-card')
+    .locator('.member-list .member-row')
     .filter({ hasText: '新增成员' })
     .getByRole('button', { name: '移除成员' })
     .click()
@@ -210,13 +210,13 @@ test('failed add does not invent membership or erase typed ID', async ({ page })
   await page.getByRole('button', { name: '添加成员' }).click()
   await expect(page.getByText('用户不存在', { exact: true })).toBeVisible()
   await expect(page.getByPlaceholder('粘贴完整用户 ID')).toHaveValue('9007199254741007')
-  await expect(page.locator('.member-list .ant-card')).toHaveCount(2)
+  await expect(page.locator('.member-list .member-row')).toHaveCount(2)
 })
 
 test('role edit sends membership ID and scope only after confirmation', async ({ page }) => {
   const calls = await mockTeam(page)
   await page.goto(`/space/${sid}/members`)
-  const member = page.locator('.member-list .ant-card').filter({ hasText: '当前成员' })
+  const member = page.locator('.member-list .member-row').filter({ hasText: '当前成员' })
   await member.locator('.ant-select').click()
   await page.locator('.ant-select-dropdown').getByTitle('编辑者', { exact: true }).click()
   expect(calls.some((c) => c.path === '/api/spaceUser/edit')).toBe(false)
@@ -224,7 +224,7 @@ test('role edit sends membership ID and scope only after confirmation', async ({
   await expect
     .poll(() => calls.find((c) => c.path === '/api/spaceUser/edit')?.body)
     .toEqual({ id: '202', spaceId: sid, spaceRole: 'editor' })
-  await expect(member.locator('.ant-tag').first()).toHaveText('编辑者')
+  await expect(member.locator('.ant-select-selection-item')).toHaveText('编辑者')
 })
 
 test('admin space list filters by type without opening protected picture APIs', async ({

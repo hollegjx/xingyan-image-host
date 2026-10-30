@@ -1,22 +1,31 @@
 <template>
   <section class="member-page">
-    <a-button type="link" @click="router.push(`/space/${id}`)">返回空间</a-button>
-    <h2>{{ space?.spaceName || '团队空间' }} · 成员管理</h2>
+    <PageHeader
+      back="返回空间"
+      eyebrow="团队空间 · 成员"
+      :title="`${space?.spaceName || '团队空间'} · 成员管理`"
+      description="按已注册用户的 ID 直接添加，无需邀请确认。创建者不能移除或降级，成员权限变更在后续请求生效。"
+      @back="router.push(`/space/${id}`)"
+    >
+      <template #actions>
+        <a-button :disabled="saving" aria-label="刷新成员" @click="load">
+          <template #icon><ReloadOutlined /></template>
+          刷新成员
+        </a-button>
+      </template>
+    </PageHeader>
     <a-alert v-if="error" :message="error" type="error" show-icon>
       <template #action><a-button @click="load">重试</a-button></template>
     </a-alert>
     <a-spin :spinning="loading">
       <template v-if="space && !error">
-        <p>
-          按已注册用户的 ID
-          直接添加，无需邀请确认。创建者不能移除或降级，成员权限变更在后续请求生效。
-        </p>
         <a-form layout="inline" class="add-form" :model="{ userId, role }" @finish="add">
+          <span class="add-form-title"><UserAddOutlined />邀请伙伴加入</span>
           <a-form-item label="用户 ID"
             ><a-input v-model:value="userId" placeholder="粘贴完整用户 ID" :maxlength="19"
           /></a-form-item>
           <a-form-item label="角色"
-            ><a-select v-model:value="role" :options="roleOptions" style="width: 140px"
+            ><a-select v-model:value="role" :options="roleOptions" style="width: 120px"
           /></a-form-item>
           <a-form-item
             ><a-button html-type="submit" type="primary" :loading="saving"
@@ -24,29 +33,39 @@
             ></a-form-item
           >
         </a-form>
-        <a-button :disabled="saving" @click="load">刷新成员</a-button>
-        <div class="member-list">
-          <a-card
-            v-for="member in members"
-            :key="String(member.id)"
-            :title="member.userName || '未命名用户'"
-          >
-            <p>用户 ID：{{ member.userId }}</p>
-            <a-tag>{{ roleName(member.spaceRole) }}</a-tag
-            ><a-tag v-if="member.owner">创建者</a-tag>
-            <a-space v-if="!member.owner" wrap>
-              <a-select
-                :value="member.spaceRole"
-                :options="roleOptions"
-                :disabled="saving"
-                aria-label="修改成员角色"
-                style="width: 140px"
-                @change="(value: string) => changeRole(member, value)"
-              />
-              <a-button danger :disabled="saving" @click="remove(member)">移除成员</a-button>
-            </a-space>
-          </a-card>
+        <div class="member-list-head">
+          <span>成员</span><span>{{ members.length }} 人</span>
         </div>
+        <ul class="member-list">
+          <li v-for="member in members" :key="String(member.id)" class="member-row">
+            <span class="member-avatar" aria-hidden="true">{{
+              (member.userName || '未').slice(0, 1)
+            }}</span>
+            <div class="member-main">
+              <div class="member-name">
+                <span>{{ member.userName || '未命名用户' }}</span>
+                <span v-if="member.owner" class="member-badge">创建者</span>
+              </div>
+              <div class="member-id">用户 ID：{{ member.userId }}</div>
+            </div>
+            <div class="member-actions">
+              <template v-if="!member.owner">
+                <a-select
+                  :value="member.spaceRole"
+                  :options="roleOptions"
+                  :disabled="saving"
+                  aria-label="修改成员角色"
+                  style="width: 120px"
+                  @change="(value: string) => changeRole(member, value)"
+                />
+                <a-button type="text" danger :disabled="saving" @click="remove(member)"
+                  >移除成员</a-button
+                >
+              </template>
+              <span v-else class="member-role">{{ roleName(member.spaceRole) }}</span>
+            </div>
+          </li>
+        </ul>
       </template>
     </a-spin>
   </section>
@@ -56,6 +75,8 @@
 import { ref, watch, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { message, Modal } from 'ant-design-vue'
+import { ReloadOutlined, UserAddOutlined } from '@ant-design/icons-vue'
+import PageHeader from '@/components/PageHeader.vue'
 import { getSpaceVoUsingGet } from '@/service/api/spaceController'
 import {
   listSpaceUserUsingPost,
@@ -177,24 +198,113 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .member-page {
-  max-width: 1000px;
-  margin: auto;
-  padding: 24px;
+  width: 100%;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 8px 0 40px;
 }
 .add-form {
-  gap: 12px;
-  margin: 20px 0;
+  align-items: center;
+  gap: 12px 0;
+  margin-bottom: 32px;
+  padding: 18px 20px;
+  border-radius: 16px;
+  background: var(--surface-soft);
+}
+.add-form-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 24px;
+  font-weight: 600;
+}
+.member-list-head {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 4px 10px;
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.08em;
 }
 .member-list {
-  display: grid;
-  gap: 16px;
-  margin-top: 20px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  overflow: hidden;
 }
-p {
+.member-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  background: var(--surface);
+}
+.member-row + .member-row {
+  border-top: 1px solid var(--line);
+}
+.member-avatar {
+  display: grid;
+  flex: none;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border-radius: 50%;
+  background: #ececf0;
+  color: var(--muted);
+  font-size: 14px;
+}
+.member-main {
+  flex: 1;
+  min-width: 0;
+}
+.member-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 500;
+}
+.member-badge {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 500;
+}
+.member-id {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }
+.member-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+}
+.member-role {
+  color: var(--muted);
+  font-size: 13px;
+}
 @media (max-width: 640px) {
-  .add-form { flex-direction: column; }
-  .add-form :deep(.ant-form-item) { margin-inline-end: 0; }
+  .add-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .add-form :deep(.ant-form-item) {
+    margin-inline-end: 0;
+  }
+  .member-row {
+    flex-wrap: wrap;
+  }
+  .member-actions {
+    width: 100%;
+    padding-left: 52px;
+  }
 }
 </style>

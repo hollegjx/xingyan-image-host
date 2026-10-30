@@ -1,10 +1,13 @@
 <template>
   <section class="manage-page">
-    <h2>空间管理</h2>
+    <PageHeader
+      eyebrow="管理 · 空间"
+      title="空间管理"
+      description="这里只管理空间元数据和额度，不授予查看私人或团队图片的权限。空间类型创建后不可更改。"
+    />
     <a-alert v-if="user.loginUser.userRole !== 1" type="error" message="仅平台管理员可访问" />
     <template v-else>
-      <p>这里只管理空间元数据和额度，不授予查看私人或团队图片的权限。空间类型创建后不可更改。</p>
-      <a-space wrap>
+      <a-space wrap class="space-filters">
         <a-input v-model:value="name" placeholder="空间名称" :maxlength="30" />
         <a-select
           v-model:value="type"
@@ -24,7 +27,7 @@
             <SpaceUsage :space="space" />
             <a-space wrap
               ><a-button @click="edit(space)">调整名称与额度</a-button
-              ><a-button danger @click="remove(space)">删除空空间</a-button></a-space
+              ><a-button type="text" danger @click="remove(space)">删除空空间</a-button></a-space
             >
           </a-card>
         </div>
@@ -62,6 +65,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { message, Modal } from 'ant-design-vue'
+import PageHeader from '@/components/PageHeader.vue'
 import {
   listSpacesUsingPost,
   updateSpaceUsingPost,
@@ -172,17 +176,39 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.manage-page {
-  padding: 24px;
-  max-width: 1100px;
-  margin: auto;
+.space-filters {
+  width: 100%;
+  padding: 16px 20px;
+  border-radius: 16px;
+  background: var(--surface-soft);
 }
 .spaces {
   display: grid;
-  gap: 16px;
-  margin: 20px 0;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 20px;
+  margin: 24px 0;
+}
+.spaces :deep(.ant-card) {
+  border-radius: 20px;
+}
+.spaces :deep(.ant-card-head) {
+  border-bottom: 0;
+  font-weight: 600;
+}
+.spaces :deep(.ant-card-body) {
+  padding-top: 0;
+}
+.spaces :deep(.space-usage) {
+  max-width: none;
 }
 p {
+  color: var(--muted);
+  font-size: 12px;
   overflow-wrap: anywhere;
+}
+@media (max-width: 720px) {
+  .spaces {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 </style>

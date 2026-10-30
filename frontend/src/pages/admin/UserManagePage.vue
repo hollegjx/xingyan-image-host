@@ -1,5 +1,14 @@
 <template>
   <div id="userManagePage">
+    <PageHeader
+      eyebrow="管理 · 用户"
+      title="用户管理"
+      description="查看和管理平台用户；由管理员创建的账号需要设置初始密码。"
+    >
+      <template #actions>
+        <a-button type="primary" @click="createOpen = true">创建用户</a-button>
+      </template>
+    </PageHeader>
     <!-- 搜索表单 -->
     <a-form class="search-form" layout="inline" :model="searchParams" @finish="doSearch">
       <a-form-item label="用户名">
@@ -22,7 +31,6 @@
       </a-form-item>
     </a-form>
 
-    <a-button type="primary" @click="createOpen = true">创建用户</a-button>
     <a-modal v-model:open="createOpen" title="创建用户" :footer="null" @cancel="clearCreate">
       <a-form :model="createForm" layout="vertical" @finish="createUser">
         <a-form-item label="账号" name="userAccount" :rules="[{ required: true, min: 4, message: '账号至少4位' }]">
@@ -30,7 +38,7 @@
         </a-form-item>
         <a-form-item label="初始密码" name="userPassword" :rules="[{ required: true, min: 6, message: '请填写至少6位的初始密码' }]">
           <a-input-password v-model:value="createForm.userPassword" autocomplete="new-password" />
-          <p>至少6位，UTF-8编码不超过72字节。</p>
+          <p>6 至 72 个英文字符（约 24 个汉字）。</p>
         </a-form-item>
         <a-form-item label="昵称"><a-input v-model:value="createForm.userName" /></a-form-item>
         <a-button type="primary" html-type="submit" :loading="creating">创建</a-button>
@@ -52,12 +60,12 @@
           <a-avatar v-else>{{ record.userName?.slice(-1) }}</a-avatar>
         </template>
         <template v-else-if="column.key === 'userRole'">
-          <a-tag :color="record.userRole === 1 ? 'red' : 'blue'">
+          <a-tag :color="record.userRole === 1 ? '#1d1d1f' : undefined">
             {{ record.userRole === 1 ? '管理员' : '普通用户' }}
           </a-tag>
         </template>
         <template v-else-if="column.key === 'action'">
-          <a-button danger @click="doDelete(record)">删除</a-button>
+          <a-button type="text" danger @click="doDelete(record)">删除</a-button>
         </template>
         <template v-else-if="column.key === 'createTime' || column.key === 'updateTime'">
           {{ formatTime(record[column.dataIndex]) }}
@@ -72,6 +80,7 @@ import { ref, onMounted, reactive, computed } from 'vue';
 import { message, Modal } from 'ant-design-vue';
 import type { TablePaginationConfig } from 'ant-design-vue';
 import { listUserVoByPageUsingPost, deleteUserUsingPost, addUserUsingPost } from '@/service/api/userController';
+import PageHeader from '@/components/PageHeader.vue';
 import dayjs from 'dayjs';
 
 const createOpen = ref(false);

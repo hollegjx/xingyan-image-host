@@ -1,12 +1,14 @@
 <template>
   <section id="spaceAnalyzePage">
-    <div class="page-heading">
-      <div>
-        <h1>图库分析</h1>
-        <p>了解图库的容量、内容分布与上传变化。</p>
-      </div>
-      <a-button v-if="!adminView" @click="backToSpace">返回空间</a-button>
-    </div>
+    <PageHeader
+      :eyebrow="adminView ? '管理 · 分析' : '空间 · 分析'"
+      title="图库分析"
+      description="了解图库的容量、内容分布与上传变化。"
+    >
+      <template v-if="!adminView" #actions>
+        <a-button @click="backToSpace">返回空间</a-button>
+      </template>
+    </PageHeader>
     <div class="filters">
       <label v-if="adminView"
         >统计范围
@@ -166,6 +168,7 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AnalysisChart from '@/components/AnalysisChart.vue'
+import PageHeader from '@/components/PageHeader.vue'
 import { dashboardUsingPost } from '@/service/api/spaceAnalyzeController'
 import { analysisRequest } from '@/utils/analysis'
 import { formatBytes, parseId, sameId } from '@/utils/space'
@@ -263,7 +266,6 @@ onBeforeUnmount(() => {
   margin: 0 auto;
   padding: 12px 4px 32px;
 }
-.page-heading,
 .snapshot {
   display: flex;
   align-items: center;
@@ -271,44 +273,52 @@ onBeforeUnmount(() => {
   gap: 16px;
   flex-wrap: wrap;
 }
-h1 {
-  font-size: 28px;
-  margin-bottom: 6px;
-}
 h2 {
   margin: 0;
   font-size: 19px;
+  font-weight: 600;
 }
-.page-heading p,
 .snapshot span,
 .scope-note,
 .caption {
-  color: #667085;
+  color: var(--muted);
 }
 .filters {
   display: flex;
   flex-wrap: wrap;
   align-items: end;
-  gap: 12px;
-  padding: 20px;
-  background: #f5f8fa;
-  border-radius: 10px;
-  margin: 16px 0 8px;
+  gap: 12px 16px;
+  padding: 18px 20px;
+  background: var(--surface-soft);
+  border-radius: 16px;
+  margin: 0 0 8px;
 }
 .filters label {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  font-size: 13px;
+  color: var(--muted);
+  font-size: 12px;
 }
+/* 原生日期与下拉控件，对齐 Ant Design 输入框的尺寸与边框 */
 .filters input,
 .filters select {
-  height: 34px;
-  border: 1px solid #d9dfe5;
-  border-radius: 6px;
-  padding: 4px 8px;
-  background: white;
+  height: 40px;
+  border: 1px solid #dedee3;
+  border-radius: 10px;
+  padding: 4px 12px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
   max-width: 180px;
+  transition: border-color 0.2s ease;
+}
+.filters input:hover,
+.filters select:hover,
+.filters input:focus,
+.filters select:focus {
+  border-color: var(--ink);
+  outline: none;
 }
 .scope-note,
 .caption {
@@ -324,13 +334,29 @@ h2 {
   gap: 16px;
   margin-bottom: 18px;
 }
+.stats-grid :deep(.ant-card) {
+  border-radius: 18px;
+}
+.stats-grid :deep(.ant-card-head) {
+  min-height: 0;
+  padding: 18px 22px 0;
+  border-bottom: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+.stats-grid :deep(.ant-card-body) {
+  padding: 10px 22px 20px;
+}
 .stats-grid strong {
-  font-size: 25px;
-  color: #175f70;
+  font-size: 30px;
+  font-weight: 650;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
 }
 .stats-grid p {
   margin: 8px 0;
-  color: #667085;
+  color: var(--muted);
   font-size: 12px;
 }
 .stats-grid small {
@@ -359,13 +385,13 @@ h2 {
 }
 .ranking-table th,
 .ranking-table td {
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--line);
   padding: 12px 8px;
   overflow-wrap: anywhere;
 }
 .ranking-table small {
   display: block;
-  color: #667085;
+  color: var(--muted);
   font-weight: normal;
 }
 @media (max-width: 900px) {

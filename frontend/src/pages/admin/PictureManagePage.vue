@@ -1,8 +1,14 @@
 <template>
   <div id="pictureManagePage">
-    <div class="page-actions">
-      <a-button type="primary" @click="openBatchUploadModal">批量导入</a-button>
-    </div>
+    <PageHeader
+      eyebrow="管理 · 图片"
+      title="图片管理"
+      description="审核公共图库的投稿，编辑或删除图片；也可以从网页批量导入素材。"
+    >
+      <template #actions>
+        <a-button type="primary" @click="openBatchUploadModal">批量导入</a-button>
+      </template>
+    </PageHeader>
 
     <!-- 搜索表单 -->
     <a-form class="search-form" layout="inline" :model="searchParams" @finish="doSearch">
@@ -44,6 +50,7 @@
       :data-source="dataList"
       :loading="loading"
       :pagination="pagination"
+      :scroll="{ x: 1400 }"
       row-key="id"
       @change="handleTableChange"
     >
@@ -52,7 +59,7 @@
           <PictureThumbnail :picture="record" width="80px" :height="60" preview />
         </template>
         <template v-else-if="column.key === 'tags'">
-          <a-tag v-for="tag in record.tags" :key="tag" color="blue">{{ tag }}</a-tag>
+          <a-tag v-for="tag in record.tags" :key="tag">{{ tag }}</a-tag>
         </template>
         <template v-else-if="column.key === 'picSize'">
           {{ formatSize(record.picSize) }}
@@ -62,34 +69,39 @@
         </template>
         <template v-else-if="column.key === 'reviewInfo'">
           <div class="review-info">
-            <div>审核状态：{{ getReviewStatusText(record.reviewStatus) }}</div>
-            <div>审核信息：{{ record.reviewMessage || '-' }}</div>
-            <div>审核人：{{ record.reviewerId || '-' }}</div>
-            <div>审核时间：{{ formatTime(record.reviewTime) }}</div>
+            <span :class="['review-status', `review-status--${record.reviewStatus}`]">{{
+              getReviewStatusText(record.reviewStatus)
+            }}</span>
+            <div v-if="record.reviewMessage" class="review-message">
+              {{ record.reviewMessage }}
+            </div>
+            <div v-if="record.reviewerId || record.reviewTime" class="review-meta">
+              审核人 {{ record.reviewerId || '-' }} · {{ formatTime(record.reviewTime) }}
+            </div>
           </div>
         </template>
         <template v-else-if="column.key === 'createTime'">
           {{ formatTime(record.createTime) }}
         </template>
         <template v-else-if="column.key === 'action'">
-          <a-space>
+          <a-space :size="2">
             <a-button
               v-if="canReviewAs(record, REVIEW_STATUS.PASS)"
-              type="link"
+              type="link" size="small"
               @click="doReview(record, REVIEW_STATUS.PASS)"
             >
               通过
             </a-button>
             <a-button
               v-if="canReviewAs(record, REVIEW_STATUS.REJECT)"
-              type="link"
+              type="link" size="small"
               danger
               @click="doReview(record, REVIEW_STATUS.REJECT)"
             >
               拒绝
             </a-button>
-            <a-button type="link" @click="doEdit(record)">编辑</a-button>
-            <a-button type="link" danger @click="doDelete(record)">删除</a-button>
+            <a-button type="link" size="small" @click="doEdit(record)">编辑</a-button>
+            <a-button type="link" size="small" danger @click="doDelete(record)">删除</a-button>
           </a-space>
         </template>
       </template>
@@ -115,6 +127,7 @@
 import { ref, onMounted, reactive, computed } from 'vue';
 import { message, Modal } from 'ant-design-vue';
 import PictureThumbnail from '@/components/PictureThumbnail.vue';
+import PageHeader from '@/components/PageHeader.vue';
 import type { TablePaginationConfig } from 'ant-design-vue';
 import {
   listPictureReviewByPageUsingPost,
@@ -160,7 +173,7 @@ const columns = [
     title: 'ID',
     dataIndex: 'id',
     key: 'id',
-    width: 80,
+    width: 100,
   },
   {
     title: '图片',
@@ -221,7 +234,7 @@ const columns = [
   {
     title: '操作',
     key: 'action',
-    width: 220,
+    width: 240,
     fixed: 'right',
   },
 ];
@@ -397,21 +410,37 @@ const fetchTagOptions = async () => {
 </script>
 
 <style scoped>
-#pictureManagePage {
-  padding: 16px;
-}
-
-.page-actions {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 16px;
-}
-
 .search-form {
-  margin-bottom: 16px;
+  gap: 12px 0;
+  margin-bottom: 20px;
 }
 
 .review-info {
-  line-height: 1.8;
+  line-height: 1.6;
+}
+.review-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.review-status::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #c4a77d;
+}
+.review-status--1::before {
+  background: var(--ink);
+}
+.review-status--2::before {
+  background: #d4380d;
+}
+.review-message,
+.review-meta {
+  color: var(--muted);
+  font-size: 12px;
 }
 </style>

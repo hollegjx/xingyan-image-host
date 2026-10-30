@@ -26,6 +26,10 @@ loginUserStore.fetchLoginUser()
         fontFamily:
           '-apple-system, BlinkMacSystemFont, Segoe UI, PingFang SC, Microsoft YaHei, sans-serif',
       },
+      components: {
+        // colorInfo 是墨色，信息提示默认会变成深灰底；这里改回浅灰底的安静样式
+        Alert: { colorInfo: '#6e6e73', colorInfoBg: '#f5f5f7', colorInfoBorder: '#e8e8ed' },
+      },
     }"
   >
     <div class="app">
