@@ -337,6 +337,7 @@ class RedisSessionIntegrationTest {
             SessionCollaborationAccess.class, CollaborationQueue.class, PictureWebSocket.class,
             CollaborationWebSocketConfig.class, PictureAccessManager.class})
     static class SessionTestApplication {
+        @Bean learn.gjx.tuku1.service.UserAdministrationService administration() { return mock(learn.gjx.tuku1.service.UserAdministrationService.class); }
         static final String FIXTURE_HASH = learn.gjx.tuku1.security.UserPasswords.hash("password123");
         @Bean learn.gjx.tuku1.security.LoginAttemptLimiter loginAttemptLimiter(org.springframework.data.redis.core.StringRedisTemplate redis) {
             return new learn.gjx.tuku1.security.LoginAttemptLimiter(redis, 5, 20, 900);

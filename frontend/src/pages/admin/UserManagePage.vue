@@ -48,6 +48,16 @@
       </a-form>
     </a-modal>
 
+    <a-modal v-model:open="passwordOpen" title="临时密码" :footer="null" :mask-closable="false" @cancel="clearTemporaryPassword">
+      <p>只显示这一次。请通过可信方式交给用户，用临时密码登录后，到设置里修改密码。</p>
+      <p>该用户已有的登录会话已全部失效。</p>
+      <a-input :value="temporaryPassword" readonly aria-label="临时密码" autocomplete="off" />
+      <a-space style="margin-top: 16px">
+        <a-button type="primary" @click="copyTemporaryPassword">复制临时密码</a-button>
+        <a-button @click="clearTemporaryPassword">已保存，关闭</a-button>
+      </a-space>
+    </a-modal>
+
     <!-- 表格 -->
     <a-table
       :columns="columns"
@@ -70,7 +80,11 @@
         <template v-else-if="column.key === 'action'">
           <!-- 不允许管理员在这里删除自己的账号 -->
           <span v-if="sameId(record.id, loginUserStore.loginUser.id)" class="self-note">当前账号</span>
-          <a-button v-else type="text" danger @click="doDelete(record)">删除</a-button>
+          <template v-else>
+            <a-button type="text" @click="changeRole(record)">{{ record.userRole === 1 ? '设为普通用户' : '设为管理员' }}</a-button>
+            <a-button type="text" danger @click="doDelete(record)">删除</a-button>
+          </template>
+          <a-button type="text" :disabled="resetting" @click="resetPassword(record)">重置密码</a-button>
         </template>
         <template v-else-if="column.key === 'createTime' || column.key === 'updateTime'">
           {{ formatTime(record[column.dataIndex]) }}
@@ -81,10 +95,10 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, onMounted, reactive, computed } from 'vue';
+import { ref, onMounted, onBeforeUnmount, reactive, computed } from 'vue';
 import { message, Modal } from 'ant-design-vue';
 import type { TablePaginationConfig } from 'ant-design-vue';
-import { listUserVoByPageUsingPost, deleteUserUsingPost, addUserUsingPost } from '@/service/api/userController';
+import { listUserVoByPageUsingPost, deleteUserUsingPost, addUserUsingPost, updateUserUsingPost, resetUserPasswordUsingPost } from '@/service/api/userController';
 import PageHeader from '@/components/PageHeader.vue';
 import { useLoginUserStore } from '@/stores/useLoginUserStore';
 import { parseId, sameId } from '@/utils/space';
@@ -106,6 +120,43 @@ async function createUser() {
     clearCreate(); createOpen.value = false; message.success('创建成功'); await fetchUserList();
   } catch (e) { message.error(e instanceof Error ? e.message : '创建失败'); }
   finally { creating.value = false; }
+}
+
+const passwordOpen = ref(false), resetting = ref(false), temporaryPassword = ref('');
+function clearTemporaryPassword() { temporaryPassword.value = ''; passwordOpen.value = false; }
+onBeforeUnmount(clearTemporaryPassword);
+async function copyTemporaryPassword() {
+  if (!temporaryPassword.value) return;
+  try { await navigator.clipboard.writeText(temporaryPassword.value); message.success('已复制'); }
+  catch { message.error('复制失败，请手动复制'); }
+}
+function changeRole(record: API.AdminUserVO) {
+  if (sameId(record.id, loginUserStore.loginUser.id)) return;
+  const role = record.userRole === 1 ? 0 : 1;
+  Modal.confirm({ title: role === 1 ? '设为管理员' : '设为普通用户', content: '确认修改此用户的平台角色？',
+    async onOk() {
+      try {
+        const res = await updateUserUsingPost({ id: record.id, userRole: role });
+        if (res.code !== 0) throw new Error(res.message || '修改失败');
+        message.success('角色已更新'); await fetchUserList();
+      } catch (e) { message.error(e instanceof Error ? e.message : '修改失败'); }
+    },
+  });
+}
+function resetPassword(record: API.AdminUserVO) {
+  if (resetting.value) return;
+  Modal.confirm({ title: '重置密码', content: '将生成新的临时密码，并使该用户所有登录会话失效。确认继续？',
+    async onOk() {
+      if (resetting.value) return;
+      resetting.value = true; clearTemporaryPassword();
+      try {
+        const res = await resetUserPasswordUsingPost({ id: record.id });
+        if (res.code !== 0 || !res.data?.temporaryPassword) throw new Error(res.message || '重置失败');
+        temporaryPassword.value = res.data.temporaryPassword; passwordOpen.value = true;
+      } catch { message.error('重置未确认成功，请勿重复点击；可重新登录后检查用户状态'); }
+      finally { resetting.value = false; }
+    },
+  });
 }
 
 // 格式化时间显示
@@ -241,6 +292,7 @@ const doReset = () => {
 
 // 删除用户
 const doDelete = (record: API.AdminUserVO) => {
+  if (sameId(record.id, loginUserStore.loginUser.id)) return;
   Modal.confirm({
     title: '确认删除',
     content: `确定要删除用户「${record.userName || record.userAccount}」吗？`,

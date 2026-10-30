@@ -129,11 +129,11 @@ public class UserController {
      */
     @PostMapping("/delete")
     @AuthCheck(mustRole = UserRoleEnum.ADMIN)
-    public BaseResponse<Boolean> deleteUser(@RequestBody UserDeleteRequest userDeleteRequest) {
+    public BaseResponse<Boolean> deleteUser(@RequestBody UserDeleteRequest userDeleteRequest, HttpServletRequest request) {
         ThrowUtils.throwIf(userDeleteRequest == null || userDeleteRequest.getId() == null, ErrorCode.PARAMS_ERROR);
         Long id = userDeleteRequest.getId();
         ThrowUtils.throwIf(id <= 0, ErrorCode.PARAMS_ERROR, "用户ID不合法");
-        boolean result = userService.removeById(id);
+        boolean result = userService.deleteUser(id, request);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "删除用户失败");
         return BaseResponse.success(true);
     }
@@ -145,8 +145,8 @@ public class UserController {
      */
     @PostMapping("/update")
     @AuthCheck(mustRole = UserRoleEnum.ADMIN)
-    public BaseResponse<Boolean> updateUser(@RequestBody UserUpdateRequest userUpdateRequest) {
-        boolean result = userService.updateUser(userUpdateRequest);
+    public BaseResponse<Boolean> updateUser(@RequestBody UserUpdateRequest userUpdateRequest, HttpServletRequest request) {
+        boolean result = userService.updateUser(userUpdateRequest, request);
         return BaseResponse.success(result);
     }
 
@@ -184,6 +184,22 @@ public class UserController {
     @AuthCheck
     public BaseResponse<Boolean> updateMyPassword(@RequestBody UserPasswordUpdateRequest update, HttpServletRequest request) {
         return BaseResponse.success(userService.updateMyPassword(update, request));
+    }
+
+    /**
+     * 管理员重置密码；响应不缓存，生成的临时密码只返回本次。
+     * @param target 目标用户 ID
+     * @param request 当前管理员会话
+     * @param response 禁止凭据响应缓存
+     * @return 一次性展示的临时密码
+     */
+    @PostMapping("/password/reset")
+    @AuthCheck(mustRole = UserRoleEnum.ADMIN)
+    public BaseResponse<learn.gjx.tuku1.model.vo.UserPasswordResetVO> resetPassword(
+            @RequestBody UserDeleteRequest target, HttpServletRequest request, javax.servlet.http.HttpServletResponse response) {
+        response.setHeader("Cache-Control", "no-store");
+        response.setHeader("Pragma", "no-cache");
+        return BaseResponse.success(userService.resetPassword(target.getId(), request));
     }
 
 }

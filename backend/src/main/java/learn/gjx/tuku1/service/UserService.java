@@ -105,7 +105,11 @@ public interface UserService extends IService<User> {
      * @param userUpdateRequest 用户更新请求参数
      * @return 更新是否成功
      */
-    boolean updateUser(UserUpdateRequest userUpdateRequest);
+    boolean updateUser(UserUpdateRequest userUpdateRequest, HttpServletRequest request);
+
+    boolean deleteUser(Long target, HttpServletRequest request);
+
+    learn.gjx.tuku1.model.vo.UserPasswordResetVO resetPassword(Long target, HttpServletRequest request);
 
     /**
      * 分页查询用户脱敏信息

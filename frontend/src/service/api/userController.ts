@@ -144,3 +144,10 @@ export async function updateMyProfileUsingPost(body: API.UserProfileUpdateReques
 export async function updateMyPasswordUsingPost(body: API.UserPasswordUpdateRequest) {
   return request<API.BaseResponseBoolean_>('/api/user/password/update', { method: 'POST', data: body })
 }
+
+/** 管理员生成临时密码，仅本次响应可见。 */
+export async function resetUserPasswordUsingPost(body: API.UserDeleteRequest) {
+  return request<{ code?: number; message?: string; data?: { temporaryPassword?: string } }>(
+    '/api/user/password/reset', { method: 'POST', data: body },
+  )
+}

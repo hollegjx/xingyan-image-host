@@ -4,7 +4,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import UserManagePage from '../../admin/UserManagePage.vue'
 const api = vi.hoisted(() => ({ add: vi.fn(), list: vi.fn() }))
 vi.mock('@/service/api/userController', () => ({
-  addUserUsingPost: api.add, listUserVoByPageUsingPost: api.list, deleteUserUsingPost: vi.fn(),
+  addUserUsingPost: api.add, listUserVoByPageUsingPost: api.list, deleteUserUsingPost: vi.fn(), updateUserUsingPost: vi.fn(), resetUserPasswordUsingPost: vi.fn(),
 }))
 vi.mock('ant-design-vue', () => ({ message: { error: vi.fn(), success: vi.fn() }, Modal: { confirm: vi.fn() } }))
 beforeEach(() => { setActivePinia(createPinia()); vi.clearAllMocks(); api.list.mockResolvedValue({ code: 0, data: { records: [] } }); api.add.mockResolvedValue({ code: 0 }) })

@@ -48,6 +48,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Resource
     private LoginAttemptLimiter loginAttemptLimiter;
 
+    @Resource
+    private learn.gjx.tuku1.service.UserAdministrationService administration;
+
     @Override
     public long userRegister(String username, String password, String confirmPassword) {
         if (StrUtil.hasBlank(username, password, confirmPassword)) {
@@ -278,6 +281,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         user.setUserName(StrUtil.isBlank(userName) ? "用户" + RandomUtil.randomString(5) : userName);
         user.setUserAvatar(userAddRequest.getUserAvatar());
         Integer userRole = userAddRequest.getUserRole();
+        if (userRole != null && userRole != 0 && userRole != 1) {
+            log.warn("创建用户的角色不合法");
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "角色不合法");
+        }
         user.setUserRole(userRole != null ? userRole : 0);
         user.setUserProfile(userAddRequest.getUserProfile());
 
@@ -289,32 +296,18 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
-    public boolean updateUser(UserUpdateRequest userUpdateRequest) {
-        if (userUpdateRequest == null || userUpdateRequest.getId() == null) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "请求参数为空");
-        }
-        Long id = userUpdateRequest.getId();
-        if (id <= 0) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户ID不合法");
-        }
+    public boolean updateUser(UserUpdateRequest update, HttpServletRequest request) {
+        return administration.update(update, getLoginUser(request).getId());
+    }
 
-        User oldUser = this.getById(id);
-        if (oldUser == null) {
-            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "用户不存在");
-        }
+    @Override
+    public boolean deleteUser(Long target, HttpServletRequest request) {
+        return administration.delete(target, getLoginUser(request).getId());
+    }
 
-        User user = new User();
-        user.setId(id);
-        user.setUserName(userUpdateRequest.getUserName());
-        user.setUserAvatar(userUpdateRequest.getUserAvatar());
-        user.setUserRole(userUpdateRequest.getUserRole());
-        user.setUserProfile(userUpdateRequest.getUserProfile());
-
-        boolean result = this.updateById(user);
-        if (!result) {
-            throw new BusinessException(ErrorCode.OPERATION_ERROR, "更新用户失败");
-        }
-        return true;
+    @Override
+    public learn.gjx.tuku1.model.vo.UserPasswordResetVO resetPassword(Long target, HttpServletRequest request) {
+        return administration.resetPassword(target, getLoginUser(request).getId());
     }
 
     @Override

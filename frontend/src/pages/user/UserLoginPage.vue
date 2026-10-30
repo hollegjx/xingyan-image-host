@@ -44,6 +44,11 @@
           ></a-form-item
         >
       </a-form>
+      <a-button type="link" @click="forgotOpen = true">忘记密码？</a-button>
+      <a-modal v-model:open="forgotOpen" title="忘记密码" :footer="null">
+        <p>请联系管理员重置；用临时密码登录后，到设置里修改密码。</p>
+        <p class="auth-subtitle">暂不提供邮件找回。</p>
+      </a-modal>
       <p class="auth-switch">还没有账号？<RouterLink to="/user/register">去注册</RouterLink></p>
     </div>
   </AuthShell>
@@ -62,6 +67,7 @@ const route = useRoute(),
 const designPreview = import.meta.env.DEV && import.meta.env.MODE === 'design'
 const submitting = ref(false)
 const loginError = ref('')
+const forgotOpen = ref(false)
 const formState = reactive<API.UserLoginRequest>({ userAccount: '', userPassword: '' })
 // 重新输入时清掉上一次的错误
 watch(

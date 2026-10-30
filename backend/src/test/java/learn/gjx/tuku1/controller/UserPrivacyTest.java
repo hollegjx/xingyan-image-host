@@ -78,6 +78,27 @@ class UserPrivacyTest {
     }
 
     @ParameterizedTest @ValueSource(ints = {-1, 0, 1})
+    void adminMutationEndpointsRequireAdminAndResetIsNotCached(int role) throws Exception {
+        learn.gjx.tuku1.service.UserAdministrationService administration = mock(learn.gjx.tuku1.service.UserAdministrationService.class);
+        ReflectionTestUtils.setField(service, "administration", administration);
+        when(administration.delete(any(), any())).thenReturn(true);
+        when(administration.update(any(), any())).thenReturn(true);
+        when(administration.resetPassword(any(), any())).thenReturn(new UserPasswordResetVO(java.util.UUID.randomUUID().toString()));
+        for (String endpoint : new String[]{"/delete", "/update", "/password/reset"}) {
+            org.springframework.test.web.servlet.MvcResult result = mvc.perform(post("/user" + endpoint).session(identity(role))
+                    .contentType("application/json").content("{\"id\":7,\"userRole\":0}")).andReturn();
+            JsonNode response = json.readTree(result.getResponse().getContentAsString());
+            if (role == 1) {
+                assertEquals(0, response.path("code").asInt());
+                if (endpoint.endsWith("reset")) {
+                    assertEquals("no-store", result.getResponse().getHeader("Cache-Control"));
+                    assertTrue(response.path("data").has("temporaryPassword"));
+                }
+            } else { assertNotEquals(0, response.path("code").asInt()); verifyNoInteractions(administration); }
+        }
+    }
+
+    @ParameterizedTest @ValueSource(ints = {-1, 0, 1})
     void selfProfileOnlyUpdatesAuthenticatedIdentityAndWhitelistedFields(int role) throws Exception {
         doReturn(true).when(service).updateById(any(User.class));
         JsonNode response = body(post("/user/update/my").session(identity(role)).contentType("application/json")
