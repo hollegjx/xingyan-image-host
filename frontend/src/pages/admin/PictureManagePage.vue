@@ -31,7 +31,8 @@
       <a-form-item label="审核状态">
         <a-select
           v-model:value="searchParams.reviewStatus"
-          placeholder="请选择审核状态"
+          placeholder="全部状态"
+          allow-clear
           :options="reviewStatusOptions"
           style="min-width: 140px"
         />
@@ -257,7 +258,8 @@ const searchParams = reactive<API.PictureQueryRequest>({
   searchText: undefined,
   category: undefined,
   tags: undefined,
-  reviewStatus: REVIEW_STATUS.REVIEWING,
+  // 默认显示全部状态，避免没有待审核图片时整页显示“暂无数据”
+  reviewStatus: undefined,
 });
 
 // 表格分页配置
@@ -305,7 +307,7 @@ const doReset = () => {
   searchParams.searchText = undefined;
   searchParams.category = undefined;
   searchParams.tags = undefined;
-  searchParams.reviewStatus = REVIEW_STATUS.REVIEWING;
+  searchParams.reviewStatus = undefined;
   fetchPictureList();
 };
 

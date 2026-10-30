@@ -831,8 +831,11 @@ onBeforeUnmount(() => {
   margin-left: auto;
   flex-shrink: 0;
   color: var(--muted);
-  height: 28px;
-  padding: 0 6px;
+  /* 点击区域放大到 36px，便于在手机上点中 */
+  width: 36px;
+  height: 36px;
+  margin-right: -8px;
+  padding: 0;
 }
 .space-picture-meta {
   display: flex;

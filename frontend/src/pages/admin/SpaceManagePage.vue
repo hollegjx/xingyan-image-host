@@ -27,7 +27,20 @@
             <SpaceUsage :space="space" />
             <a-space wrap
               ><a-button @click="edit(space)">调整名称与额度</a-button
-              ><a-button type="text" danger @click="remove(space)">删除空空间</a-button></a-space
+              ><a-tooltip
+                :title="
+                  Number(space.totalCount) > 0
+                    ? `空间里还有 ${space.totalCount} 张图片，清空后才能删除`
+                    : '只有没有任何图片的空间可以删除'
+                "
+                ><a-button
+                  type="text"
+                  danger
+                  :disabled="Number(space.totalCount) > 0"
+                  @click="remove(space)"
+                  >删除空空间</a-button
+                ></a-tooltip
+              ></a-space
             >
           </a-card>
         </div>

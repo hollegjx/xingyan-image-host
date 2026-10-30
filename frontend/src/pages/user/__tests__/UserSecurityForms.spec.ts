@@ -1,12 +1,13 @@
 import { shallowMount, flushPromises } from '@vue/test-utils'
 import { beforeEach, expect, it, vi } from 'vitest'
+import { createPinia, setActivePinia } from 'pinia'
 import UserManagePage from '../../admin/UserManagePage.vue'
 const api = vi.hoisted(() => ({ add: vi.fn(), list: vi.fn() }))
 vi.mock('@/service/api/userController', () => ({
   addUserUsingPost: api.add, listUserVoByPageUsingPost: api.list, deleteUserUsingPost: vi.fn(),
 }))
 vi.mock('ant-design-vue', () => ({ message: { error: vi.fn(), success: vi.fn() }, Modal: { confirm: vi.fn() } }))
-beforeEach(() => { vi.clearAllMocks(); api.list.mockResolvedValue({ code: 0, data: { records: [] } }); api.add.mockResolvedValue({ code: 0 }) })
+beforeEach(() => { setActivePinia(createPinia()); vi.clearAllMocks(); api.list.mockResolvedValue({ code: 0, data: { records: [] } }); api.add.mockResolvedValue({ code: 0 }) })
 function form() {
   const wrapper = shallowMount(UserManagePage)
   const vm = wrapper.vm as unknown as { createForm: API.UserAddRequest; createUser: () => Promise<void>; clearCreate: () => void }

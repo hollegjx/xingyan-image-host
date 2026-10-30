@@ -1,6 +1,9 @@
 <template>
   <div class="picture-upload" :class="{ 'is-busy': busy }" :aria-busy="busy">
-    <p v-if="picture" class="replacement-note">
+    <p v-if="picture?.uploadStatus === 0" class="replacement-note">
+      想换一张？重新选择文件即可替换这份草稿。
+    </p>
+    <p v-else-if="picture" class="replacement-note">
       当前为替换模式，上传新文件会替换此图片。移除预览不会删除数据库记录。
     </p>
     <a-tabs v-model:activeKey="uploadMode">

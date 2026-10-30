@@ -11,6 +11,7 @@ const stubs = {
   'a-input': { props: ['value'], template: '<input :value="value" />' },
   'a-button': { template: '<button><slot /></button>' },
   'a-qrcode': { props: ['value'], template: '<div data-qr>{{ value }}</div>' },
+  'a-segmented': { template: '<div />' },
 }
 afterEach(() => vi.unstubAllGlobals())
 describe('picture sharing', () => {
@@ -44,5 +45,29 @@ describe('picture sharing', () => {
     await wrapper.get('button').trigger('click')
     await flushPromises()
     expect(wrapper.text()).toContain('自动复制失败')
+  })
+  it('offers a direct link only for published public pictures', () => {
+    const url = 'https://cdn.example/public/a.webp'
+    const published = mount(PictureShareModal, {
+      props: {
+        open: true,
+        picture: { id: '1', name: '海', url, uploadStatus: 1, reviewStatus: 1 },
+      },
+      global: { stubs },
+    })
+    expect(published.get('#picture-embed-code').element).toHaveProperty('value', url)
+    const pending = mount(PictureShareModal, {
+      props: { open: true, picture: { id: '2', url, uploadStatus: 1, reviewStatus: 0 } },
+      global: { stubs },
+    })
+    expect(pending.find('#picture-embed-code').exists()).toBe(false)
+    const privatePicture = mount(PictureShareModal, {
+      props: {
+        open: true,
+        picture: { id: '3', spaceId: '7', url, uploadStatus: 1, reviewStatus: 1 },
+      },
+      global: { stubs },
+    })
+    expect(privatePicture.find('#picture-embed-code').exists()).toBe(false)
   })
 })

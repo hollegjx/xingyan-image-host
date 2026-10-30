@@ -1,15 +1,26 @@
 <template>
-  <div class="picture-thumbnail" :style="{ width, height: `${height}px` }">
+  <div
+    class="picture-thumbnail"
+    :class="{ 'is-loading': !!src && loadedSrc !== src }"
+    :style="{ width, height: `${height}px` }"
+  >
     <img
       v-if="src"
       :key="src"
       :src="src"
       :alt="picture.name || '图片'"
+      :class="{ 'is-loaded': loadedSrc === src }"
       loading="lazy"
       decoding="async"
+      @load="handleLoad"
       @error="handleError"
     />
-    <span v-else class="image-unavailable" role="img" :aria-label="`${picture.name || '图片'}：加载失败`">
+    <span
+      v-else
+      class="image-unavailable"
+      role="img"
+      :aria-label="`${picture.name || '图片'}：加载失败`"
+    >
       图片暂不可用
     </span>
     <button
@@ -45,6 +56,7 @@ const props = withDefaults(
 )
 
 const failedSources = ref<string[]>([])
+const loadedSrc = ref('')
 const previewOpen = ref(false)
 const src = computed(() =>
   [props.picture.thumbnailUrl, props.picture.url]
@@ -59,6 +71,10 @@ watch(
     previewOpen.value = false
   },
 )
+
+function handleLoad(event: Event) {
+  loadedSrc.value = (event.target as HTMLImageElement).getAttribute('src') || ''
+}
 
 function handleError(event: Event) {
   // Ignore a late error from an image that has already been replaced.
@@ -84,6 +100,32 @@ function setPreviewOpen(visible: boolean) {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.45s ease;
+}
+.picture-thumbnail > img.is-loaded {
+  opacity: 1;
+}
+/* 加载中显示一层很淡的流光骨架，图片到达后淡入 */
+.picture-thumbnail.is-loading {
+  background: linear-gradient(100deg, #f2f2f4 30%, #e9e9ed 50%, #f2f2f4 70%) 0 0 / 300% 100%;
+  animation: thumbnail-shimmer 1.6s ease-in-out infinite;
+}
+@keyframes thumbnail-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .picture-thumbnail.is-loading {
+    animation: none;
+  }
+  .picture-thumbnail > img {
+    transition: none;
+  }
 }
 
 .image-unavailable {

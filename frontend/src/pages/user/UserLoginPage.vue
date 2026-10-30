@@ -29,6 +29,8 @@
             autocomplete="current-password"
           />
         </a-form-item>
+        <!-- 登录失败的原因留在表单里，不会像气泡提示那样一闪而过 -->
+        <p v-if="loginError" class="login-error" role="alert">{{ loginError }}</p>
 
         <a-form-item
           ><a-button
@@ -48,7 +50,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { reactive, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { message } from 'ant-design-vue'
 import AuthShell from '@/components/AuthShell.vue'
@@ -59,10 +61,19 @@ const route = useRoute(),
   loginUserStore = useLoginUserStore()
 const designPreview = import.meta.env.DEV && import.meta.env.MODE === 'design'
 const submitting = ref(false)
+const loginError = ref('')
 const formState = reactive<API.UserLoginRequest>({ userAccount: '', userPassword: '' })
+// 重新输入时清掉上一次的错误
+watch(
+  () => [formState.userAccount, formState.userPassword],
+  () => {
+    loginError.value = ''
+  },
+)
 async function handleSubmit(values: API.UserLoginRequest) {
   if (designPreview || submitting.value) return
 
+  loginError.value = ''
   submitting.value = true
   try {
     const res = await userLoginUsingPost(values)
@@ -76,9 +87,21 @@ async function handleSubmit(values: API.UserLoginRequest) {
         : '/',
     )
   } catch (e) {
-    message.error(e instanceof Error ? e.message : '登录失败，请稍后重试')
+    loginError.value = e instanceof Error ? e.message : '登录失败，请稍后重试'
   } finally {
     submitting.value = false
   }
 }
 </script>
+
+<style scoped>
+.login-error {
+  margin: -8px 0 16px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #fff2f0;
+  color: #cf1322;
+  font-size: 13px;
+  line-height: 1.6;
+}
+</style>

@@ -2,8 +2,16 @@
   <div id="addPicturePage" :aria-busy="initializing">
     <header class="creation-header">
       <span class="eyebrow">创作工作台</span>
-      <h2>{{ picture ? '编辑 / 替换图片' : '创建图片' }}</h2>
-      <p>{{ picture ? '给好作品，一点新的可能。' : '为想留下的画面，找一处安静的屋檐。' }}</p>
+      <h2>{{ !picture ? '创建图片' : isDraft ? '完善图片信息' : '编辑 / 替换图片' }}</h2>
+      <p>
+        {{
+          !picture
+            ? '为想留下的画面，找一处安静的屋檐。'
+            : isDraft
+              ? '图片已收进檐下，补上名称和简介，保存后就完成了。'
+              : '给好作品，一点新的可能。'
+        }}
+      </p>
     </header>
     <a-spin v-if="initializing" />
     <a-alert v-else-if="error" type="error" :message="error" show-icon>
@@ -153,6 +161,8 @@ import { loadPictureCapabilities } from '@/composables/usePictureCapabilities'
 const router = useRouter()
 const route = useRoute()
 const picture = ref<API.PictureVO>()
+// 刚上传的图片是草稿（尚未保存信息），与编辑已完成的图片区分标题和提示
+const isDraft = computed(() => picture.value?.uploadStatus === 0)
 const submitting = ref(false)
 const uploading = ref(false)
 const editing = ref(false)
@@ -242,7 +252,8 @@ const loadContext = async () => {
     if (target) {
       const capabilities = await loadPictureCapabilities()
       if (ticket !== sequence) return
-      if (!capabilities.privateStorageConfigured) throw new Error('私有图片存储尚未配置，暂不可上传或替换图片')
+      if (!capabilities.privateStorageConfigured)
+        throw new Error('私有图片存储尚未配置，暂不可上传或替换图片')
       const res = await getSpaceVoUsingGet({ id: target })
       if (ticket !== sequence) return
       if (res.code !== 0 || !res.data) throw new Error(res.message || '获取空间失败')
@@ -340,7 +351,14 @@ const handleSubmit = async () => {
     })
 
     if (res.code === 0) {
-      message.success('图片信息已提交')
+      message.success({
+        content: spaceId.value
+          ? '已保存到空间'
+          : isDraft.value
+            ? '已提交，审核通过后会出现在公共图库'
+            : '图片信息已更新',
+        duration: 4,
+      })
       savedForm.value = JSON.stringify(pictureForm.value)
       submitting.value = false
       returnToGallery(router, spaceId.value ? `/space/${spaceId.value}` : '/')

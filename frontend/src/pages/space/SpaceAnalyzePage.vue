@@ -110,7 +110,7 @@
           </a-card>
           <a-card title="图片大小分布">
             <AnalysisChart title="图片大小分布" :data="data.sizes || []" />
-            <p class="caption">区间含下限、不含上限；统计业务图片大小，不代表 COS 全部物理用量。</p>
+            <p class="caption">区间含下限、不含上限；按原图大小统计，不含缩略图等衍生文件占用的存储。</p>
           </a-card>
           <a-card v-if="scope !== 'ALL'" title="热门标签 Top 30" class="wide">
             <AnalysisChart title="热门标签" :data="data.tags || []" value-name="使用图片数" />

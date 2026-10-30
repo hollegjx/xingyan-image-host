@@ -11,6 +11,9 @@
     </PageHeader>
     <!-- 搜索表单 -->
     <a-form class="search-form" layout="inline" :model="searchParams" @finish="doSearch">
+      <a-form-item label="用户 ID">
+        <a-input v-model:value="userIdText" placeholder="完整用户 ID" allow-clear style="width: 200px" />
+      </a-form-item>
       <a-form-item label="用户名">
         <a-input v-model:value="searchParams.userName" placeholder="请输入用户名" allow-clear />
       </a-form-item>
@@ -65,7 +68,9 @@
           </a-tag>
         </template>
         <template v-else-if="column.key === 'action'">
-          <a-button type="text" danger @click="doDelete(record)">删除</a-button>
+          <!-- 不允许管理员在这里删除自己的账号 -->
+          <span v-if="sameId(record.id, loginUserStore.loginUser.id)" class="self-note">当前账号</span>
+          <a-button v-else type="text" danger @click="doDelete(record)">删除</a-button>
         </template>
         <template v-else-if="column.key === 'createTime' || column.key === 'updateTime'">
           {{ formatTime(record[column.dataIndex]) }}
@@ -81,6 +86,8 @@ import { message, Modal } from 'ant-design-vue';
 import type { TablePaginationConfig } from 'ant-design-vue';
 import { listUserVoByPageUsingPost, deleteUserUsingPost, addUserUsingPost } from '@/service/api/userController';
 import PageHeader from '@/components/PageHeader.vue';
+import { useLoginUserStore } from '@/stores/useLoginUserStore';
+import { parseId, sameId } from '@/utils/space';
 import dayjs from 'dayjs';
 
 const createOpen = ref(false);
@@ -158,6 +165,9 @@ const dataList = ref<API.AdminUserVO[]>([]);
 const loading = ref(false);
 const total = ref(0);
 
+const loginUserStore = useLoginUserStore();
+const userIdText = ref('');
+
 // 搜索条件（统一管理查询参数）
 const searchParams = reactive<API.UserQueryRequest>({
   current: 1,
@@ -179,9 +189,19 @@ const pagination = computed(() => ({
 }));
 
 const fetchUserList = async () => {
+  const idText = userIdText.value.trim();
+  const id = parseId(idText);
+  if (idText && !id) {
+    message.warning('请输入有效的完整用户 ID');
+    return;
+  }
   loading.value = true;
   try {
-    const res = await listUserVoByPageUsingPost(searchParams);
+    // 用户 ID 超出 JS 安全整数范围，按字符串提交，由后端解析为 Long
+    const res = await listUserVoByPageUsingPost({
+      ...searchParams,
+      id: id as unknown as number | undefined,
+    });
     if (res.code === 0 && res.data) {
       dataList.value = res.data.records || [];
       total.value = Number(res.data.total || 0);
@@ -212,6 +232,7 @@ const doSearch = () => {
 // 重置
 const doReset = () => {
   searchParams.current = 1;
+  userIdText.value = '';
   searchParams.userName = undefined;
   searchParams.userAccount = undefined;
   searchParams.userRole = undefined;
@@ -249,6 +270,11 @@ onMounted(() => {
 
 <style scoped>
 .search-form {
+  gap: 12px 0;
   margin-bottom: 16px;
+}
+.self-note {
+  color: var(--muted);
+  font-size: 12px;
 }
 </style>
