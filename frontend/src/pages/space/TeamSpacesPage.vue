@@ -22,7 +22,7 @@
 
     <div v-if="user.loginUser.id" class="team-id-strip">
       <TeamOutlined />
-      <span>想加入别人的团队？把你的用户 ID 发给团队管理员</span>
+      <span>请团队管理员发邀请链接给你，或把你的用户 ID 发给他</span>
       <button type="button" class="team-id" title="复制用户 ID" @click="copyUserId">
         {{ user.loginUser.id }}<CopyOutlined />
       </button>
@@ -33,7 +33,7 @@
       <a-empty
         v-if="!loading && !error && !teams.length"
         class="team-empty"
-        description="尚未加入团队，请创建团队或请团队管理员按你的用户 ID 添加"
+        description="尚未加入团队，请创建团队、使用邀请链接，或请管理员按用户 ID 添加"
       />
       <div class="teams">
         <article v-for="member in teams" :key="String(member.id)" class="team-card">

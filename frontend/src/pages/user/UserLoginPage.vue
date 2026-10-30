@@ -87,6 +87,10 @@ async function handleSubmit(values: API.UserLoginRequest) {
     message.success('登录成功')
     await loginUserStore.fetchLoginUser()
     const target = route.query.redirect
+    if (target === '/space/invite') {
+      await router.replace({ path: '/space/invite', hash: route.hash })
+      return
+    }
     await router.replace(
       typeof target === 'string' && /^\/(?!\/)/.test(target) && !/[\\\r\n]/.test(target)
         ? target

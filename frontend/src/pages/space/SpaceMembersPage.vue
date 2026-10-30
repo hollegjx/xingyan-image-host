@@ -4,7 +4,7 @@
       back="返回空间"
       eyebrow="团队空间 · 成员"
       :title="`${space?.spaceName || '团队空间'} · 成员管理`"
-      description="按已注册用户的 ID 直接添加，无需邀请确认。创建者不能移除或降级，成员权限变更在后续请求生效。"
+      description="可发送邀请链接让对方确认加入，也可按用户 ID 直接添加。创建者不能移除或降级。"
       @back="router.push(`/space/${id}`)"
     >
       <template #actions>
@@ -33,6 +33,31 @@
             ></a-form-item
           >
         </a-form>
+        <section class="invitation-panel">
+          <a-button @click="openInvitations">管理邀请链接</a-button>
+          <template v-if="invitesOpen">
+            <a-form layout="inline" :model="inviteForm" @finish="createLink">
+              <a-form-item label="邀请角色"><a-select v-model:value="inviteForm.spaceRole" :options="inviteRoles" style="width: 120px" /></a-form-item>
+              <a-form-item label="有效期"><a-select v-model:value="inviteForm.validDays" :options="[{ value: 1, label: '1 天' }, { value: 7, label: '7 天' }]" style="width: 100px" /></a-form-item>
+              <a-form-item label="使用次数上限"><a-input-number v-model:value="inviteForm.maxUses" :min="1" :precision="0" placeholder="不限" /></a-form-item>
+              <a-button type="primary" html-type="submit" :loading="inviteSaving">生成邀请链接</a-button>
+            </a-form>
+            <p v-if="inviteError" role="alert">{{ inviteError }}</p>
+            <div v-if="inviteLink">
+              <p>链接只在生成时展示，请及时复制。任何获得链接的人都可在有效期和次数范围内申请加入。</p>
+              <a-input :value="inviteLink" readonly aria-label="新邀请链接" />
+              <a-button @click="copyInvite">复制邀请链接</a-button>
+              <a-button @click="inviteLink = ''">隐藏链接</a-button>
+            </div>
+            <p v-if="!invitations.length">暂无有效邀请链接</p>
+            <ul>
+              <li v-for="item in invitations" :key="String(item.id)">
+                {{ roleName(item.spaceRole) }} · 到期 {{ new Date(item.expiresAt).toLocaleString() }} · 已使用 {{ item.usedCount }} / {{ item.maxUses ?? '不限' }}
+                <a-button type="text" :disabled="inviteSaving" @click="revokeLink(item.id)">作废邀请</a-button>
+              </li>
+            </ul>
+          </template>
+        </section>
         <div class="member-list-head">
           <span>成员</span><span>{{ members.length }} 人</span>
         </div>
@@ -72,7 +97,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onBeforeUnmount } from 'vue'
+import { ref, reactive, watch, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { message, Modal } from 'ant-design-vue'
 import { ReloadOutlined, UserAddOutlined } from '@ant-design/icons-vue'
@@ -85,6 +110,7 @@ import {
   deleteSpaceUserUsingPost,
 } from '@/service/api/spaceUserController'
 import { hasPermission, permissions, parseId, sameId, roleName } from '@/utils/space'
+import { createInvitation, listInvitations, revokeInvitation, type Invitation } from '@/service/api/teamInvitationController'
 
 const props = defineProps<{ id: string }>()
 const router = useRouter()
@@ -99,6 +125,49 @@ const roleOptions = ['viewer', 'editor', 'admin'].map((value) => ({
   value,
   label: roleName(value),
 }))
+const invitesOpen = ref(false), inviteSaving = ref(false), inviteLink = ref(''), inviteError = ref('')
+const invitations = ref<Invitation[]>([])
+const inviteForm = reactive<{ spaceRole: string; validDays: number; maxUses?: number }>({ spaceRole: 'viewer', validDays: 1 })
+const inviteRoles = ['viewer', 'editor'].map(value => ({ value, label: roleName(value) }))
+async function loadInvitations() {
+  const target = props.id
+  const res = await listInvitations(target)
+  if (target !== props.id) return
+  if (res.code !== 0 || !Array.isArray(res.data)) throw new Error(res.message || '读取邀请失败')
+  invitations.value = res.data
+}
+async function openInvitations() {
+  invitesOpen.value = !invitesOpen.value; inviteLink.value = ''; inviteError.value = ''
+  if (!invitesOpen.value) return
+  try { await loadInvitations() } catch (e) { inviteError.value = e instanceof Error ? e.message : '读取邀请失败' }
+}
+async function createLink() {
+  if (inviteSaving.value) return
+  const target = props.id
+  inviteSaving.value = true; inviteError.value = ''; inviteLink.value = ''
+  try {
+    const res = await createInvitation({ spaceId: target, ...inviteForm, maxUses: inviteForm.maxUses || undefined })
+    if (target !== props.id) return
+    if (res.code !== 0 || !res.data?.token) throw new Error(res.message || '生成邀请失败')
+    inviteLink.value = `${window.location.origin}/space/invite#token=${encodeURIComponent(res.data.token)}`
+    await loadInvitations()
+  } catch { inviteError.value = '生成结果未确认，请刷新邀请列表核对' }
+  finally { inviteSaving.value = false }
+}
+async function revokeLink(id: string | number) {
+  if (inviteSaving.value) return
+  inviteSaving.value = true; inviteError.value = ''
+  try {
+    const res = await revokeInvitation(props.id, id)
+    if (res.code !== 0) throw new Error(res.message || '作废失败')
+    inviteLink.value = ''; await loadInvitations()
+  } catch (e) { inviteError.value = e instanceof Error ? e.message : '作废结果未确认，请刷新核对' }
+  finally { inviteSaving.value = false }
+}
+async function copyInvite() {
+  try { await navigator.clipboard.writeText(inviteLink.value); message.success('已复制邀请链接') }
+  catch { message.error('复制失败，请手动复制') }
+}
 let sequence = 0
 async function load() {
   const ticket = ++sequence
@@ -185,6 +254,7 @@ watch(
   () => props.id,
   () => {
     userId.value = ''
+    inviteLink.value = ''; invitesOpen.value = false; invitations.value = []
     role.value = 'viewer'
     void load()
   },
@@ -192,11 +262,14 @@ watch(
 )
 onBeforeUnmount(() => {
   sequence++
+  inviteLink.value = ''
   Modal.destroyAll()
 })
 </script>
 
 <style scoped>
+.invitation-panel { padding: 20px; margin-bottom: 24px; background: var(--surface-soft); border-radius: 16px; }
+.invitation-panel .ant-form { margin-top: 16px; gap: 12px; }
 .member-page {
   width: 100%;
   max-width: 1080px;

@@ -8,6 +8,10 @@ const router = createRouter({
   scrollBehavior,
   routes: [
     {
+      path: '/space/invite', name: 'team-invite',
+      component: () => import('../pages/space/TeamInvitePage.vue'),
+    },
+    {
       path: '/user/profile',
       name: 'user-profile',
       component: () => import('../pages/user/UserProfilePage.vue'),
