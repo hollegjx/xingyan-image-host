@@ -202,7 +202,7 @@ test('avatar opens real current-user profile without admin APIs', async ({ page 
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('个人资料。')
   await expect(page.getByText('9007199254740993', { exact: true })).toBeVisible()
   await expect(page.getByText('gallery-reader', { exact: true })).toBeVisible()
-  await expect(page.getByText('当前资料由管理员维护', { exact: false })).toBeVisible()
+  await expect(page.getByText('可在设置中修改昵称、简介和密码', { exact: false })).toBeVisible()
   await expect(page.locator('.profile-identity').getByRole('heading')).toHaveText('林间')
   await expect(page.getByRole('menu')).toBeHidden()
   await page.screenshot({ path: info.outputPath('profile-desktop.png'), fullPage: true })

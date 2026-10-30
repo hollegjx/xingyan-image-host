@@ -58,14 +58,25 @@
       <p class="account-note settings-system">我们也会遵循系统的“减少动态效果”设置。</p>
     </section>
     <section class="account-panel" aria-label="修改个人资料">
-      <h2>修改个人资料</h2>
+      <div class="account-panel-heading">
+        <div>
+          <h2>修改个人资料</h2>
+          <p class="panel-intro">昵称和简介会展示在你的主页与作品旁。</p>
+        </div>
+        <UserOutlined />
+      </div>
       <a-form :model="profileForm" layout="vertical" @finish="saveProfile">
         <a-form-item
           label="昵称"
           name="userName"
           :rules="[{ required: true, whitespace: true, max: 32, message: '昵称为1至32位' }]"
         >
-          <a-input v-model:value="profileForm.userName" :maxlength="32" :disabled="!profileReady" />
+          <a-input
+            v-model:value="profileForm.userName"
+            :maxlength="32"
+            placeholder="给自己取个名字"
+            :disabled="!profileReady"
+          />
         </a-form-item>
         <a-form-item label="个人简介" name="userProfile">
           <a-textarea
@@ -73,6 +84,7 @@
             :maxlength="128"
             show-count
             :rows="3"
+            placeholder="一句话介绍你自己"
             :disabled="!profileReady"
           />
         </a-form-item>
@@ -89,7 +101,13 @@
       <p class="account-note settings-service">头像暂不支持自助修改，现有头像会保留。</p>
     </section>
     <section class="account-panel" aria-label="修改密码">
-      <h2>修改密码</h2>
+      <div class="account-panel-heading">
+        <div>
+          <h2>修改密码</h2>
+          <p class="panel-intro">修改成功后，其他设备上的登录会失效，需要重新登录。</p>
+        </div>
+        <LockOutlined />
+      </div>
       <a-form :model="passwordForm" layout="vertical" @finish="savePassword">
         <a-form-item
           label="旧密码"
@@ -99,6 +117,7 @@
           <a-input-password
             v-model:value="passwordForm.oldPassword"
             autocomplete="current-password"
+            placeholder="当前使用的密码"
           />
         </a-form-item>
         <a-form-item
@@ -106,7 +125,11 @@
           name="newPassword"
           :rules="[{ required: true, min: 6, message: '新密码至少6位' }]"
         >
-          <a-input-password v-model:value="passwordForm.newPassword" autocomplete="new-password" />
+          <a-input-password
+            v-model:value="passwordForm.newPassword"
+            autocomplete="new-password"
+            placeholder="至少 6 位"
+          />
         </a-form-item>
         <a-form-item
           label="确认新密码"
@@ -116,11 +139,10 @@
           <a-input-password
             v-model:value="passwordForm.checkPassword"
             autocomplete="new-password"
+            placeholder="再输入一次新密码"
           />
         </a-form-item>
-        <p class="account-note">
-          新密码至少6位，UTF-8编码不超过72字节。修改成功后，其他设备和会话需要重新登录。
-        </p>
+        <p class="account-note">新密码 6 至 72 个英文字符（约 24 个汉字）。</p>
         <a-button type="primary" html-type="submit" :loading="savingPassword">修改密码</a-button>
       </a-form>
       <p v-if="passwordError" role="alert" class="logout-error">{{ passwordError }}</p>
@@ -168,8 +190,10 @@ import {
   ArrowRightOutlined,
   CheckOutlined,
   LaptopOutlined,
+  LockOutlined,
   LogoutOutlined,
   SafetyOutlined,
+  UserOutlined,
 } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 import AccountShell from '@/components/AccountShell.vue'
@@ -246,7 +270,7 @@ async function savePassword() {
     passwordForm.newPassword.length < 6 ||
     new TextEncoder().encode(passwordForm.newPassword).length > 72
   ) {
-    passwordError.value = '请输入旧密码；新密码至少6位，UTF-8编码不超过72字节'
+    passwordError.value = '请输入旧密码；新密码需 6 至 72 个英文字符（约 24 个汉字）'
     return
   }
   if (passwordForm.newPassword !== passwordForm.checkPassword) {
@@ -287,6 +311,11 @@ async function logout() {
 }
 </script>
 <style scoped>
+.panel-intro {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
 .settings-local {
   display: flex;
   gap: 6px;

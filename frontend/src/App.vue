@@ -11,6 +11,7 @@ loginUserStore.fetchLoginUser()
 <template>
   <a-config-provider
     :locale="zhCN"
+    :auto-insert-space-in-button="false"
     :theme="{
       token: {
         colorPrimary: '#1d1d1f',

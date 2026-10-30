@@ -11,7 +11,7 @@
       </a-alert>
       <!-- Hide failed loads without discarding the user's search form; the gallery is cleared in load(). -->
       <div v-if="space" v-show="!error">
-        <a-alert v-if="!capabilities.privateStorageConfigured" type="warning" show-icon
+        <a-alert v-if="!capabilities.privateStorageConfigured" class="storage-alert" type="warning" show-icon
           :message="capabilityError || '私有图片存储尚未配置，暂不可上传或替换图片。空间和成员管理仍可使用。'" />
         <header class="space-header">
           <div class="space-heading">
@@ -618,6 +618,9 @@ onBeforeUnmount(() => {
   padding: 8px 0 40px;
   max-width: 1440px;
   margin: 0 auto;
+}
+.storage-alert {
+  margin: 8px 0 28px;
 }
 .space-header {
   display: flex;

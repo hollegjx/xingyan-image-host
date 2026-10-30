@@ -1,6 +1,15 @@
 <template>
-  <a-button v-if="canSearchPublicPicture(picture)" :disabled="!capabilities.externalImageSearchEnabled"
-    :title="capabilityError || (!capabilities.externalImageSearchEnabled ? '外部以图搜图尚未启用' : '以图搜图')" @click.stop.prevent="openSearch"
+  <a-button
+    v-if="
+      canSearchPublicPicture(picture) &&
+      !(hideWhenDisabled && !capabilities.externalImageSearchEnabled)
+    "
+    :disabled="!capabilities.externalImageSearchEnabled"
+    :title="
+      capabilityError ||
+      (!capabilities.externalImageSearchEnabled ? '外部以图搜图尚未启用' : '以图搜图')
+    "
+    @click.stop.prevent="openSearch"
     >以图搜图</a-button
   >
 </template>
@@ -10,7 +19,8 @@ import { useRouter } from 'vue-router'
 import { canSearchPublicPicture } from '@/utils/imageSearch'
 import { usePictureCapabilities } from '@/composables/usePictureCapabilities'
 const { capabilities, capabilityError } = usePictureCapabilities()
-const props = defineProps<{ picture: API.PictureVO }>()
+// 列表卡片里不展示不可用的入口，避免每张卡片都挂一个灰色按钮
+const props = defineProps<{ picture: API.PictureVO; hideWhenDisabled?: boolean }>()
 const router = useRouter()
 const openSearch = () =>
   router.push({ path: '/picture/search', query: { pictureId: String(props.picture.id) } })

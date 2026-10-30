@@ -21,7 +21,7 @@
         >{{ picture.user?.userName || '星檐图床' }}</span
       >
       <div class="card-actions">
-        <PictureSearchButton :picture="picture" /><button
+        <PictureSearchButton :picture="picture" hide-when-disabled /><button
           type="button"
           aria-label="分享"
           @click="$emit('share', picture)"
