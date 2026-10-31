@@ -25,7 +25,7 @@
       </p>
       <a-tabs v-model:activeKey="uploadMode">
         <a-tab-pane key="file" tab="文件上传" :disabled="urlUploading || disabled">
-          <fieldset class="upload-picker" :disabled="busy || disabled" aria-label="选择图片文件">
+          <fieldset class="upload-picker" :disabled="busy || disabled" aria-label="选择图片文件" @drop.capture="handleFileDrop">
             <a-upload-dragger
               v-model:file-list="fileList"
               class="upload-dropzone"
@@ -224,9 +224,25 @@ watch(
   () => (replacing.value = false),
 )
 
-// 阻止默认上传行为
-const handleBeforeUpload = (file: File) => {
+// 在上传组件截取第一张前检查完整拖入列表，避免其余文件被静默丢弃。
+const handleFileDrop = (event: DragEvent) => {
+  const count = event.dataTransfer?.files.length ?? 0
+  if (count <= 1) return
+  event.preventDefault()
+  event.stopPropagation()
+  if (!busy.value && !props.disabled) {
+    message.warning(`一次只能上传一张，本次拖入了 ${count} 个文件，均未上传，请重新选择`)
+  }
+}
+
+const handleBeforeUpload = (file: File, files: File[] = [file]) => {
   if (loading.value || urlUploading.value || props.disabled) return Upload.LIST_IGNORE
+  if (files.length > 1) {
+    if (file === files[0]) {
+      message.warning(`一次只能上传一张，本次选择了 ${files.length} 个文件，均未上传，请重新选择`)
+    }
+    return Upload.LIST_IGNORE
+  }
   const validationMessage = validatePictureFile(file)
   if (validationMessage) {
     message.error(validationMessage)

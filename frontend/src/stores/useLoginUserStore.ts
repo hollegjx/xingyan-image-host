@@ -16,13 +16,16 @@ export const useLoginUserStore = defineStore('loginUser', () => {
   const loginUser = ref<LoginUser>({})
   // 是否已尝试获取过登录信息（避免重复请求）
   const hasFetched = ref(false)
+  let loginRevision = 0
   let fetchingPromise: Promise<void> | undefined
 
   const setLoginUser = (user: LoginUser) => {
+    loginRevision++
     loginUser.value = user
   }
 
   const clearLoginUser = () => {
+    loginRevision++
     loginUser.value = {}
     hasFetched.value = false
   }
@@ -32,12 +35,15 @@ export const useLoginUserStore = defineStore('loginUser', () => {
     if (fetchingPromise) {
       return fetchingPromise
     }
+    const revision = loginRevision
     hasFetched.value = true
     fetchingPromise = (async () => {
       try {
         const res = await getLoginUserUsingGet()
+        if (revision !== loginRevision) return
         loginUser.value = res.code === 0 && res.data ? res.data : {}
       } catch {
+        if (revision !== loginRevision) return
         // 公共页面不应因为后端暂时不可用或未登录而中断路由。
         loginUser.value = {}
       }

@@ -37,3 +37,16 @@ describe('useLoginUserStore', () => {
     expect(store.loginUser.id).toBe(1)
   })
 })
+
+it('does not restore a cleared session from an older in-flight login lookup', async () => {
+  setActivePinia(createPinia())
+  let resolveRequest!: (value: API.BaseResponseLoginUserVO_) => void
+  vi.mocked(getLoginUserUsingGet).mockImplementation(() => new Promise(resolve => { resolveRequest = resolve }))
+  const store = useLoginUserStore()
+  store.setLoginUser({ id: '1' })
+  const pending = store.fetchLoginUser()
+  store.clearLoginUser()
+  resolveRequest({ code: 0, data: { id: '1' } })
+  await pending
+  expect(store.loginUser).toEqual({})
+})
