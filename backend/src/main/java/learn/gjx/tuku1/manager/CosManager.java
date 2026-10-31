@@ -25,29 +25,8 @@ public class CosManager {
         PutObjectRequest request = new PutObjectRequest(bucket, key, file);
         request.setCannedAcl(com.qcloud.cos.model.CannedAccessControlList.Private);
         request.setPicOperations(operations);
-        PutObjectResult result = timedUpload(request, file == null ? 0 : file.length());
-        // 派生图必须落在已配置为私有读写的桶。对返回的预期派生对象再显式设置 Private。
-        if (result != null && result.getCiUploadResult() != null
-                && result.getCiUploadResult().getProcessResults() != null
-                && result.getCiUploadResult().getProcessResults().getObjectList() != null) {
-            for (com.qcloud.cos.model.ciModel.persistence.CIObject object
-                    : result.getCiUploadResult().getProcessResults().getObjectList()) {
-                if (object == null || object.getKey() == null) { continue; }
-                String outputKey = object.getKey().replaceFirst("^/", "");
-                boolean expected = operations.getRules().stream()
-                        .anyMatch(rule -> ("/" + outputKey).equals(rule.getFileId()) && bucket.equals(rule.getBucket()));
-                if (expected) {
-                    long aclStarted = System.nanoTime();
-                    try {
-                        cosClient.setObjectAcl(bucket, outputKey, com.qcloud.cos.model.CannedAccessControlList.Private);
-                    } finally {
-                        UploadTiming.record(UploadTiming.Stage.PRIVATE_ACL, aclStarted,
-                                object.getSize() == null ? 0 : object.getSize());
-                    }
-                }
-            }
-        }
-        return result;
+        // 派生图继承独立私有桶的默认 ACL；发布前必须通过原图及两种派生图的匿名读取拒绝校验。
+        return timedUpload(request, file == null ? 0 : file.length());
     }
 
     private PutObjectResult timedUpload(PutObjectRequest request, long bytes) {

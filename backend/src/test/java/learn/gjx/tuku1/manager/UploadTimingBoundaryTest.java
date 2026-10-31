@@ -81,7 +81,7 @@ class UploadTimingBoundaryTest {
     }
 
     @ParameterizedTest @ValueSource(booleans = {false, true})
-    void privateAclIsSeparateAndFailureStillPropagates(boolean fail) throws Exception {
+    void privateDerivativesLogOnlyPutAndPreservePutFailure(boolean fail) throws Exception {
         COSClient client = mock(COSClient.class); CosManager manager = new CosManager();
         ReflectionTestUtils.setField(manager, "cosClient", client);
         PicOperations ops = new PicOperations(); PicOperations.Rule rule = new PicOperations.Rule();
@@ -92,14 +92,14 @@ class UploadTimingBoundaryTest {
         CIUploadResult ci = new CIUploadResult(); ci.setProcessResults(processed);
         PutObjectResult result = new PutObjectResult(); result.setCiUploadResult(ci);
         when(client.putObject(any(PutObjectRequest.class))).thenReturn(result);
-        IllegalStateException error = new IllegalStateException("ACL test failure");
-        if (fail) doThrow(error).when(client).setObjectAcl(anyString(), anyString(), any(CannedAccessControlList.class));
+        IllegalStateException error = new IllegalStateException("private PUT test failure");
+        if (fail) when(client.putObject(any(PutObjectRequest.class))).thenThrow(error);
         File file = Files.write(directory.resolve("original.jpg"), new byte[100]).toFile();
         if (fail) assertSame(error, assertThrows(IllegalStateException.class,
                 () -> manager.putPrivatePictureObject("private-test", "space/1/a.jpg", file, ops)));
         else assertSame(result, manager.putPrivatePictureObject("private-test", "space/1/a.jpg", file, ops));
-        assertEquals(2, events.list.size()); assertTiming(0, "COS_UPLOAD", 100); assertTiming(1, "PRIVATE_ACL", 50);
-        verify(client).setObjectAcl("private-test", "space/1/display.webp", CannedAccessControlList.Private);
+        assertEquals(1, events.list.size()); assertTiming(0, "COS_UPLOAD", 100);
+        verify(client, never()).setObjectAcl(anyString(), anyString(), any(CannedAccessControlList.class));
     }
 
     @ParameterizedTest @ValueSource(booleans = {false, true})

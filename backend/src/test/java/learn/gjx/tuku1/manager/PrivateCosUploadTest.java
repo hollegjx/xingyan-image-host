@@ -15,7 +15,7 @@ import static org.mockito.ArgumentMatchers.*;
 
 class PrivateCosUploadTest {
     @Test
-    void originalRequestAndExpectedDerivativesUseExplicitPrivateAcl() {
+    void originalUsesExplicitPrivateAclAndDerivativesNeedNoAclRoundTrips() {
         COSClient client = mock(COSClient.class);
         CosManager manager = new CosManager();
         ReflectionTestUtils.setField(manager, "cosClient", client);
@@ -30,13 +30,13 @@ class PrivateCosUploadTest {
         CIUploadResult ci = new CIUploadResult(); ci.setProcessResults(processed);
         PutObjectResult result = new PutObjectResult(); result.setCiUploadResult(ci);
         when(client.putObject(any(PutObjectRequest.class))).thenReturn(result);
-        manager.putPrivatePictureObject(bucket, "space/101/a.jpg", new File("not-read-by-mock.jpg"), ops);
+        assertSame(result, manager.putPrivatePictureObject(bucket, "space/101/a.jpg", new File("not-read-by-mock.jpg"), ops));
         ArgumentCaptor<PutObjectRequest> capture = ArgumentCaptor.forClass(PutObjectRequest.class);
         verify(client).putObject(capture.capture());
         assertEquals(bucket, capture.getValue().getBucketName());
         assertEquals(CannedAccessControlList.Private, capture.getValue().getCannedAcl());
         assertSame(ops, capture.getValue().getPicOperations());
-        verify(client).setObjectAcl(bucket, "space/101/a_display.webp", CannedAccessControlList.Private);
-        verify(client, never()).setObjectAcl(eq(bucket), eq("public/other.jpg"), any(CannedAccessControlList.class));
+        verify(client, never()).setObjectAcl(anyString(), anyString(), any(CannedAccessControlList.class));
+        verifyNoMoreInteractions(client);
     }
 }

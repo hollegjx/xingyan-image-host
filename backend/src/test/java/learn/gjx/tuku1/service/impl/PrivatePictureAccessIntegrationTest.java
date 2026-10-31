@@ -27,6 +27,8 @@ import learn.gjx.tuku1.domain.collaboration.EditRoom;
 import learn.gjx.tuku1.infrastructure.collaboration.CollaborationQueue;
 import learn.gjx.tuku1.infrastructure.collaboration.CollaborationWriteGuard;
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.builder.SpringApplicationBuilder;
@@ -455,6 +457,15 @@ class PrivatePictureAccessIntegrationTest {
         mvc.perform(get("/picture/private/file").param("id", "11")).andExpect(jsonPath("$.code").value(40100));
         mvc.perform(get("/picture/private/file").param("id", "11").session(session(3)))
                 .andExpect(jsonPath("$.code").value(40101));
+        verifyNoInteractions(cos);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"original", "display", "thumbnail"})
+    void anonymousRequestsCannotReadAnyPrivateVariant(String variant) throws Exception {
+        mvc.perform(get("/picture/private/file").param("id", "11").param("variant", variant))
+                .andExpect(jsonPath("$.code").value(40100))
+                .andExpect(header().doesNotExist("Location"));
         verifyNoInteractions(cos);
     }
 
