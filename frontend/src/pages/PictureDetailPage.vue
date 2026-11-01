@@ -7,7 +7,7 @@
     </a-button>
 
     <a-alert v-if="error" type="error" :message="error" show-icon />
-    <div v-else-if="loading" class="detail-layout" aria-label="正在加载图片">
+    <div v-else-if="loading" class="detail-layout" role="status" aria-label="正在加载图片">
       <div class="detail-stage detail-stage--loading" />
       <a-skeleton active :paragraph="{ rows: 6 }" />
     </div>
@@ -187,6 +187,7 @@ const toggleFavorite = async () => {
     if (result.code !== 0 || !result.data) throw new Error(result.message || '收藏操作失败')
     picture.value.favoriteCount = result.data.favoriteCount
     picture.value.favorited = result.data.favorited
+    message.success(result.data.favorited ? '已收藏' : '已取消收藏')
   } catch (e) {
     if (ticket === sequence) message.error(e instanceof Error ? e.message : '收藏操作失败，请重试')
   } finally {

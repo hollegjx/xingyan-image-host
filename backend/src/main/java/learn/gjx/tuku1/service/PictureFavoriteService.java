@@ -42,6 +42,35 @@ public class PictureFavoriteService {
         return new PictureFavoriteVO(visible ? count(r.getPictureId()) : 0, r.getFavorite());
     }
 
+    @Transactional(readOnly = true)
+    public java.util.Map<String, PictureFavoriteStatusVO> status(PictureFavoriteStatusRequest r, HttpServletRequest request) {
+        if (r == null || r.getPictureIds() == null || r.getPictureIds().isEmpty() || r.getPictureIds().size() > 50
+                || r.getPictureIds().stream().anyMatch(id -> id == null || id <= 0))
+            throw failure(ErrorCode.PARAMS_ERROR, "每次请查询1至50张图片");
+        User actor = null;
+        if (request.getSession(false) != null) {
+            try { actor = users.getLoginUser(request); }
+            catch (BusinessException e) {
+                if (e.getCode() != ErrorCode.NOT_LOGIN_ERROR.getCode() && e.getCode() != ErrorCode.NOT_FOUND_ERROR.getCode()) throw e;
+            }
+        }
+        final boolean authenticated = actor != null;
+        java.util.List<Long> ids = new java.util.ArrayList<>(new java.util.LinkedHashSet<>(r.getPictureIds()));
+        java.util.List<Object> args = new java.util.ArrayList<>();
+        args.add(authenticated ? actor.getId() : -1L);
+        args.addAll(ids);
+        String placeholders = String.join(",", java.util.Collections.nCopies(ids.size(), "?"));
+        String sql = "SELECT p.id, COUNT(f.userId) AS favoriteCount, MAX(CASE WHEN f.userId=? THEN 1 ELSE 0 END) AS favorited "
+                + "FROM picture p LEFT JOIN picture_favorite f ON f.pictureId=p.id "
+                + "WHERE p.isDelete=0 AND p.spaceId IS NULL AND p.reviewStatus=1 AND p.uploadStatus=1 "
+                + "AND p.id IN (" + placeholders + ") GROUP BY p.id";
+        java.util.Map<String, PictureFavoriteStatusVO> result = new java.util.LinkedHashMap<>();
+        jdbc.query(sql, args.toArray(), (org.springframework.jdbc.core.RowCallbackHandler) row ->
+                result.put(Long.toString(row.getLong("id")), new PictureFavoriteStatusVO(
+                        row.getLong("favoriteCount"), authenticated ? row.getInt("favorited") == 1 : null)));
+        return result;
+    }
+
     public long count(long pictureId) {
         return jdbc.queryForObject("SELECT COUNT(*) FROM picture_favorite WHERE pictureId=?", Long.class, pictureId);
     }

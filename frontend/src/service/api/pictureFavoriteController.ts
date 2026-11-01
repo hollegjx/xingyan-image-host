@@ -10,3 +10,9 @@ export const listMyFavorites = (current: number, pageSize = 12) =>
     method: 'POST',
     data: { current, pageSize },
   })
+
+export type FavoriteStatus = { favoriteCount: string | number; favorited?: boolean }
+export const getPictureFavoriteStatuses = (pictureIds: (string | number)[]) =>
+  request<Result<Record<string, FavoriteStatus>>>('/api/picture/favorite/status', {
+    method: 'POST', data: { pictureIds },
+  })

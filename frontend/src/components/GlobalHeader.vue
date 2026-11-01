@@ -43,6 +43,7 @@
         </div>
       </div>
       <div class="topbar-actions">
+        <router-link v-if="loginUser.id" to="/user/favorites" class="favorites-link"><HeartOutlined aria-hidden="true" /><span>我的收藏</span></router-link>
         <router-link v-if="showGlobalUpload" to="/picture/add" class="upload-link"
           ><PlusOutlined /><span>创建图片</span></router-link
         >
@@ -74,7 +75,7 @@
             </a-menu>
           </template>
         </a-dropdown>
-        <a v-else :href="router.resolve('/user/login').href" class="upload-link"
+        <a v-else-if="hasResolved" :href="router.resolve('/user/login').href" class="upload-link"
           >登录 / 注册 <ArrowRightOutlined
         /></a>
       </div>
@@ -154,7 +155,7 @@ watch(
   },
   { immediate: true },
 )
-const { loginUser } = storeToRefs(store)
+const { loginUser, hasResolved } = storeToRefs(store)
 const menuOpen = ref(false)
 const loggingOut = ref(false)
 const showGlobalUpload = computed(
@@ -232,6 +233,8 @@ async function handleLogout() {
 </script>
 
 <style scoped>
+.favorites-link { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; white-space: nowrap; color: var(--muted); }
+@media (max-width: 540px) { .favorites-link { font-size: 11px; } .topbar-actions > a[href="/picture/add"] { display: none; } }
 .account-dropdown {
   min-width: 190px;
   padding: 8px;

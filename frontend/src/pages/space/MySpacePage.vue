@@ -2,7 +2,7 @@
   <section id="mySpacePage">
     <header class="spaces-header">
       <span class="eyebrow"><LockOutlined /> 只属于你的收藏</span>
-      <h2>{{ !loading && !total && !error ? '给灵感，一个自己的空间。' : '我的空间' }}</h2>
+      <h2>{{ !loading && !total && !error ? '给灵感，一个自己的空间' : '我的空间' }}</h2>
       <p>
         {{
           total > 1
@@ -11,7 +11,8 @@
         }}
       </p>
     </header>
-    <a-spin :spinning="loading">
+    <div v-if="loading" role="status" aria-label="正在加载我的空间" aria-busy="true"><a-skeleton active :paragraph="{ rows: 6 }" /></div>
+    <a-spin v-show="!loading" :spinning="loading">
       <a-alert v-if="error" type="error" :message="error" show-icon>
         <template #action><a-button size="small" @click="load">重试</a-button></template>
       </a-alert>

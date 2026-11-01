@@ -134,12 +134,13 @@
           v-for="picture in dataList"
           :key="String(picture.id)"
           :picture="picture"
+          :favorite-status="favoriteStatuses[String(picture.id)]"
           @share="openShare"
         />
       </div>
       <div v-else class="gallery-empty">
         <div class="empty-icon"><BrandMark /></div>
-        <h3>{{ hasFilters ? '还没有找到这份灵感' : '屋檐已备好，等第一张图片。' }}</h3>
+        <h3>{{ hasFilters ? '还没有找到这份灵感' : '屋檐已备好，等第一张图片' }}</h3>
         <p>
           {{
             hasFilters
@@ -147,8 +148,7 @@
               : '这里还没有公开图片，上传你的第一张作品吧。'
           }}
         </p>
-        <a-button v-if="hasFilters" @click="clearFilters">清除筛选</a-button>
-        <router-link v-else to="/picture/add" class="empty-upload"
+        <router-link v-if="!hasFilters" to="/picture/add" class="empty-upload"
           >上传第一张图片 <ArrowRightOutlined
         /></router-link>
       </div>
@@ -169,7 +169,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, reactive, computed } from 'vue'
+import { ref, onMounted, onBeforeUnmount, reactive, computed, watch } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import { useNavigationStore } from '@/stores/useNavigationStore'
 import {
@@ -190,6 +190,22 @@ import {
   listPictureTagCategoryUsingGet,
 } from '@/service/api/pictureController'
 
+import { getPictureFavoriteStatuses, type FavoriteStatus } from '@/service/api/pictureFavoriteController'
+import { useLoginUserStore } from '@/stores/useLoginUserStore'
+const loginUserStore = useLoginUserStore()
+const favoriteStatuses = ref<Record<string, FavoriteStatus>>({})
+let favoriteSequence = 0
+async function loadFavoriteStatuses() {
+  const ticket = ++favoriteSequence
+  favoriteStatuses.value = {}
+  const ids = dataList.value.flatMap(p => p.id == null ? [] : [p.id])
+  if (!ids.length) return
+  try {
+    const res = await getPictureFavoriteStatuses(ids)
+    if (ticket === favoriteSequence && res.code === 0 && res.data) favoriteStatuses.value = res.data
+  } catch { /* 卡片仍可浏览，收藏状态未知时不展示虚构计数。 */ }
+}
+watch(() => loginUserStore.loginUser.id, loadFavoriteStatuses)
 const navigation = useNavigationStore()
 type HomeView = {
   search: API.PictureQueryRequest
@@ -254,6 +270,7 @@ async function fetchData() {
     if (res.code !== 0 || !res.data) throw new Error(res.message || '无法加载图片，请稍后重试')
     dataList.value = res.data.records || []
     total.value = Number(res.data.total || 0)
+    void loadFavoriteStatuses()
     const lastPage = Math.max(1, Math.ceil(total.value / (searchParams.pageSize || 12)))
     if ((searchParams.current || 1) > lastPage) {
       searchParams.current = lastPage
@@ -307,6 +324,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   sequence++
   disposed = true
+  favoriteSequence++
 })
 </script>
 

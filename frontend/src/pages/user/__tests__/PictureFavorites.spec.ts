@@ -10,6 +10,7 @@ const api = vi.hoisted(() => ({
   list: vi.fn(),
   push: vi.fn(),
   error: vi.fn(),
+  success: vi.fn(),
 }))
 vi.mock('vue-router', () => ({ useRouter: () => ({ push: api.push }) }))
 vi.mock('@/service/api/pictureController', () => ({
@@ -25,7 +26,7 @@ vi.mock('@/service/api/spaceController', () => ({
     .fn()
     .mockResolvedValue({ code: 0, data: { id: '99', permissionList: ['picture:view'] } }),
 }))
-vi.mock('ant-design-vue', () => ({ message: { error: api.error }, Modal: { confirm: vi.fn() } }))
+vi.mock('ant-design-vue', () => ({ message: { error: api.error, success: api.success }, Modal: { confirm: vi.fn() } }))
 type Detail = {
   toggleFavorite: () => Promise<void>
   picture: API.PictureDetailVO

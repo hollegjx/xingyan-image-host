@@ -16,16 +16,19 @@ export const useLoginUserStore = defineStore('loginUser', () => {
   const loginUser = ref<LoginUser>({})
   // 是否已尝试获取过登录信息（避免重复请求）
   const hasFetched = ref(false)
+  const hasResolved = ref(false)
   let loginRevision = 0
   let fetchingPromise: Promise<void> | undefined
 
   const setLoginUser = (user: LoginUser) => {
     loginRevision++
+    hasResolved.value = true
     loginUser.value = user
   }
 
   const clearLoginUser = () => {
     loginRevision++
+    hasResolved.value = true
     loginUser.value = {}
     hasFetched.value = false
   }
@@ -51,6 +54,7 @@ export const useLoginUserStore = defineStore('loginUser', () => {
     try {
       await fetchingPromise
     } finally {
+      hasResolved.value = true
       fetchingPromise = undefined
     }
   }
@@ -58,6 +62,7 @@ export const useLoginUserStore = defineStore('loginUser', () => {
   return {
     loginUser,
     hasFetched,
+    hasResolved,
     setLoginUser,
     clearLoginUser,
     fetchLoginUser,

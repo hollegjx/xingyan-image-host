@@ -119,7 +119,7 @@ test('empty and error states are distinct, without fabricated production records
 }, info) => {
   await setup(page, { empty: true, anonymous: true })
   await page.goto('/')
-  await expect(page.getByText('屋檐已备好，等第一张图片。')).toBeVisible()
+  await expect(page.getByText('屋檐已备好，等第一张图片')).toBeVisible()
   await expect(page.getByRole('link', { name: '上传第一张图片' })).toBeVisible()
   await expect(page.locator('.gallery-card')).toHaveCount(0)
   await page.screenshot({ path: info.outputPath('gallery-empty.png'), fullPage: true })

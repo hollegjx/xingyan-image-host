@@ -16,6 +16,12 @@ public class PictureFavoriteController {
     @ModelAttribute public void noStore(HttpServletResponse response) {
         response.setHeader("Cache-Control", "private, no-store"); response.setHeader("Vary", "Cookie");
     }
+    /** 批量读取至多50张公开图片的收藏数量；有效会话额外返回本人状态。 */
+    @PostMapping("/status")
+    public BaseResponse<java.util.Map<String, PictureFavoriteStatusVO>> status(
+            @RequestBody PictureFavoriteStatusRequest r, HttpServletRequest request) {
+        return BaseResponse.success(favorites.status(r, request));
+    }
     /** 幂等设置当前用户的收藏状态；不能指定他人身份。 */
     @PostMapping("/set") @AuthCheck
     public BaseResponse<PictureFavoriteVO> set(@RequestBody PictureFavoriteRequest r, HttpServletRequest request) {

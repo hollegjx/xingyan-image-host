@@ -1,6 +1,7 @@
 <template>
   <section id="spaceDetailPage" :aria-busy="loading">
-    <a-spin :spinning="loading">
+    <div v-if="loading" role="status" aria-label="正在加载空间" aria-busy="true"><a-skeleton active :paragraph="{ rows: 8 }" /></div>
+    <a-spin v-show="!loading" :spinning="loading">
       <a-alert v-if="error" type="error" :message="error" show-icon>
         <template #action>
           <a-space wrap>

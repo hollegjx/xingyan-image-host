@@ -1,9 +1,6 @@
 <template>
+  <div v-if="canSearchPublicPicture(picture) && !hideWhenDisabled" class="search-action">
   <a-button
-    v-if="
-      canSearchPublicPicture(picture) &&
-      !(hideWhenDisabled && !capabilities.externalImageSearchEnabled)
-    "
     :disabled="!capabilities.externalImageSearchEnabled"
     :title="
       capabilityError ||
@@ -12,6 +9,9 @@
     @click.stop.prevent="openSearch"
     >以图搜图</a-button
   >
+  <span v-if="!capabilities.externalImageSearchEnabled" class="search-note">{{ capabilityError || '以图搜图暂未开放' }}</span>
+  </div>
+  <a-button v-else-if="canSearchPublicPicture(picture) && capabilities.externalImageSearchEnabled" @click.stop.prevent="openSearch">以图搜图</a-button>
 </template>
 
 <script setup lang="ts">
@@ -25,3 +25,8 @@ const router = useRouter()
 const openSearch = () =>
   router.push({ path: '/picture/search', query: { pictureId: String(props.picture.id) } })
 </script>
+
+<style scoped>
+.search-action { display: inline-flex; flex-direction: column; gap: 5px; }
+.search-note { color: var(--muted); font-size: 11px; }
+</style>

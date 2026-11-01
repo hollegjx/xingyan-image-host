@@ -21,6 +21,10 @@
         >{{ picture.user?.userName || '星檐图床' }}</span
       >
       <div class="card-actions">
+        <button type="button" class="favorite-button" :disabled="favoriteBusy || (!!user.loginUser.id && !status)"
+          :aria-pressed="!!status?.favorited" :aria-label="`${status?.favorited ? '取消收藏' : '收藏'} ${picture.name || '未命名图片'}`"
+          @click="toggleFavorite"><HeartFilled v-if="status?.favorited" aria-hidden="true" /><HeartOutlined v-else aria-hidden="true" />
+          <span>{{ status?.favorited ? '已收藏' : '收藏' }} · {{ status?.favoriteCount ?? '—' }}</span></button>
         <PictureSearchButton :picture="picture" hide-when-disabled /><button
           type="button"
           aria-label="分享"
@@ -33,13 +37,53 @@
   </article>
 </template>
 <script setup lang="ts">
-import { ArrowUpOutlined, ExportOutlined } from '@ant-design/icons-vue'
+import { ArrowUpOutlined, ExportOutlined, HeartOutlined, HeartFilled } from '@ant-design/icons-vue'
 import PictureThumbnail from '@/components/PictureThumbnail.vue'
 import PictureSearchButton from '@/components/PictureSearchButton.vue'
-defineProps<{ picture: API.PictureVO }>()
+import { ref, watch, onBeforeUnmount } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { message } from 'ant-design-vue'
+import { useLoginUserStore } from '@/stores/useLoginUserStore'
+import { setPictureFavorite, type FavoriteStatus } from '@/service/api/pictureFavoriteController'
+const props = defineProps<{ picture: API.PictureVO; favoriteStatus?: FavoriteStatus }>()
+const user = useLoginUserStore()
+const router = useRouter(), route = useRoute()
+const status = ref<FavoriteStatus>()
+const favoriteBusy = ref(false)
+let version = 0
+watch(() => [props.picture.id, props.favoriteStatus, user.loginUser.id], () => {
+  version++
+  favoriteBusy.value = false
+  status.value = props.favoriteStatus ? { ...props.favoriteStatus, favorited: !!user.loginUser.id && props.favoriteStatus.favorited } : undefined
+}, { immediate: true })
+onBeforeUnmount(() => { version++ })
+async function toggleFavorite() {
+  if (favoriteBusy.value || props.picture.id == null) return
+  if (!user.loginUser.id) {
+    await router.push({ path: '/user/login', query: { redirect: route.fullPath } })
+    return
+  }
+  if (!status.value) return
+  const ticket = version
+  favoriteBusy.value = true
+  try {
+    const res = await setPictureFavorite(props.picture.id, !status.value.favorited)
+    if (ticket !== version) return
+    if (res.code !== 0 || !res.data) throw new Error(res.message || '收藏操作失败，请重试')
+    status.value = res.data
+    message.success(res.data.favorited ? '已收藏' : '已取消收藏')
+  } catch (error) {
+    if (ticket === version) message.error(error instanceof Error ? error.message : '收藏操作失败，请重试')
+  } finally {
+    if (ticket === version) favoriteBusy.value = false
+  }
+}
 defineEmits<{ share: [picture: API.PictureVO] }>()
 </script>
 <style scoped>
+.favorite-button { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; }
+.favorite-button[aria-pressed="true"] { color: #9c5260; }
+.card-actions > button:disabled { cursor: wait; opacity: .5; }
 .gallery-card {
   min-width: 0;
 }
@@ -116,6 +160,7 @@ defineEmits<{ share: [picture: API.PictureVO] }>()
   justify-content: space-between;
   align-items: center;
   min-height: 25px;
+  flex-wrap: wrap;
   gap: 8px;
 }
 .card-author {

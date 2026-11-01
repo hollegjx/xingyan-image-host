@@ -41,7 +41,7 @@
         </a-form-item>
         <a-form-item label="初始密码" name="userPassword" :rules="[{ required: true, min: 6, message: '请填写至少6位的初始密码' }]">
           <a-input-password v-model:value="createForm.userPassword" autocomplete="new-password" />
-          <p>6 至 72 个英文字符（约 24 个汉字）。</p>
+          <p>至少 6 个字符，最多 72 字节（英文字母和数字各占 1 字节，常用汉字占 3 字节）。</p>
         </a-form-item>
         <a-form-item label="昵称"><a-input v-model:value="createForm.userName" /></a-form-item>
         <a-button type="primary" html-type="submit" :loading="creating">创建</a-button>

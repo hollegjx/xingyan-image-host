@@ -3,6 +3,7 @@ import { mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import Antd from 'ant-design-vue'
+import { useLoginUserStore } from '@/stores/useLoginUserStore'
 import GlobalHeader from '../GlobalHeader.vue'
 
 describe('login link deployment base', () => {
@@ -20,7 +21,12 @@ describe('login link deployment base', () => {
     })
     await router.push('/')
     await router.isReady()
-    const wrapper = mount(GlobalHeader, { global: { plugins: [createPinia(), router, Antd] } })
+    const pinia = createPinia()
+    const wrapper = mount(GlobalHeader, { global: { plugins: [pinia, router, Antd] } })
+    expect(wrapper.find('a.upload-link').exists()).toBe(false)
+    expect(wrapper.find('[aria-label="用户菜单"]').exists()).toBe(false)
+    useLoginUserStore(pinia).clearLoginUser()
+    await wrapper.vm.$nextTick()
     expect(wrapper.find(`a[href="${base}user/login"]`).exists()).toBe(true)
     wrapper.unmount()
   })

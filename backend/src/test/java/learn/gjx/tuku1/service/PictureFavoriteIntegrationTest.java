@@ -162,6 +162,40 @@ class PictureFavoriteIntegrationTest {
         MockHttpServletRequest request=new MockHttpServletRequest();request.setSession(new MockHttpSession());favorites.decorate(v,p,request);
         assertNull(v.getFavorited());assertEquals(0,v.getFavoriteCount());
     }
+    @ParameterizedTest @ValueSource(ints={0,1,2,3})
+    void batchStatusHasPublicCountsAndOnlyCurrentUserState(int actor)throws Exception{
+        favorites.set(request(10,true),user(1));favorites.set(request(10,true),user(2));
+        org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder r=post("/picture/favorite/status")
+            .contentType("application/json").content("{\"pictureIds\":[10,11,10],\"userId\":1}");
+        if(actor>0)r.header("X-Test-User",String.valueOf(actor)).session(new MockHttpSession());
+        org.springframework.test.web.servlet.MvcResult result=mvc.perform(r).andReturn();
+        com.fasterxml.jackson.databind.JsonNode body=json.readTree(result.getResponse().getContentAsString());
+        assertEquals(0,body.path("code").asInt());
+        com.fasterxml.jackson.databind.JsonNode rows=body.path("data");
+        assertEquals(2,rows.size());assertEquals(2,rows.path("10").path("favoriteCount").asInt());
+        assertEquals(0,rows.path("11").path("favoriteCount").asInt());
+        assertEquals(actor>0,rows.path("10").has("favorited"));
+        if(actor>0)assertEquals(actor!=3,rows.path("10").path("favorited").asBoolean());
+        assertEquals("private, no-store",result.getResponse().getHeader("Cache-Control"));
+        assertEquals("Cookie",result.getResponse().getHeader("Vary"));
+    }
+    @ParameterizedTest @ValueSource(strings={"spaceId=99","reviewStatus=0","reviewStatus=2","uploadStatus=0","isDelete=1"})
+    void batchOmitsHiddenAndMissingPictures(String change){
+        favorites.set(request(10,true),user(1));jdbc.update("UPDATE picture SET "+change+" WHERE id=10");
+        PictureFavoriteStatusRequest r=new PictureFavoriteStatusRequest();r.setPictureIds(Arrays.asList(10L,999L));
+        assertTrue(favorites.status(r,new MockHttpServletRequest()).isEmpty());
+    }
+    @Test void batchRejectsInvalidIdsAndExcessiveSize(){
+        for(List<Long> ids:Arrays.asList(Collections.<Long>emptyList(),Arrays.asList(0L),Arrays.asList(-1L),Arrays.asList((Long)null),Collections.nCopies(51,10L))){
+            PictureFavoriteStatusRequest r=new PictureFavoriteStatusRequest();r.setPictureIds(ids);
+            assertThrows(BusinessException.class,()->favorites.status(r,new MockHttpServletRequest()));
+        }
+    }
+    @Test void batchExpiredSessionOnlyReturnsAnonymousCounts(){
+        PictureFavoriteStatusRequest r=new PictureFavoriteStatusRequest();r.setPictureIds(Arrays.asList(10L));
+        MockHttpServletRequest req=new MockHttpServletRequest();req.setSession(new MockHttpSession());
+        assertNull(favorites.status(r,req).get("10").getFavorited());
+    }
     @TestConfiguration @EnableAutoConfiguration @EnableAspectJAutoProxy
     @Import({MybatisPlusConfig.class,JsonConfig.class,PictureFavoriteService.class,PictureAccessManager.class,PictureFavoriteController.class,PictureController.class,AuthInterceptor.class,GlobalExceptionHandler.class})
     static class TestApplication {

@@ -142,7 +142,7 @@
             placeholder="再输入一次新密码"
           />
         </a-form-item>
-        <p class="account-note">新密码 6 至 72 个英文字符（约 24 个汉字）。</p>
+        <p class="account-note">新密码 至少 6 个字符，最多 72 字节（英文字母和数字各占 1 字节，常用汉字占 3 字节）。</p>
         <a-button type="primary" html-type="submit" :loading="savingPassword">修改密码</a-button>
       </a-form>
       <p v-if="passwordError" role="alert" class="logout-error">{{ passwordError }}</p>
@@ -270,7 +270,7 @@ async function savePassword() {
     passwordForm.newPassword.length < 6 ||
     new TextEncoder().encode(passwordForm.newPassword).length > 72
   ) {
-    passwordError.value = '请输入旧密码；新密码需 6 至 72 个英文字符（约 24 个汉字）'
+    passwordError.value = '请输入旧密码；新密码需 至少 6 个字符，最多 72 字节（英文字母和数字各占 1 字节，常用汉字占 3 字节）'
     return
   }
   if (passwordForm.newPassword !== passwordForm.checkPassword) {

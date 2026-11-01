@@ -90,6 +90,7 @@ const remove = async (picture: API.PictureVO) => {
     const result = await setPictureFavorite(picture.id, false)
     if (ticket !== sequence) return
     if (result.code !== 0) throw new Error(result.message || '取消收藏失败')
+    message.success('已取消收藏')
     await load()
   } catch (e) {
     if (ticket === sequence) message.error(e instanceof Error ? e.message : '取消收藏失败，请重试')
