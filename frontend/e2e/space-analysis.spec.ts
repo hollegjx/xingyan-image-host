@@ -162,6 +162,15 @@ test('date filters affect request and validation does not retain previous result
   await page.goto(`/space/${sid}/analyze`)
   await expect(page.getByTestId('analysis-dashboard')).toBeVisible()
   await page.getByLabel('开始日期', { exact: true }).click()
+  await expect(page.locator('.ant-picker-panel:visible th')).toHaveText([
+    '一',
+    '二',
+    '三',
+    '四',
+    '五',
+    '六',
+    '日',
+  ])
   await page.getByLabel('开始日期', { exact: true }).fill('2025-01-01')
   await page.getByLabel('开始日期', { exact: true }).press('Enter')
   await page.getByRole('button', { name: '查询 / 刷新' }).click()

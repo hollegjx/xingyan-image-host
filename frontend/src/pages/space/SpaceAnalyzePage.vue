@@ -189,6 +189,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import dateLocale from 'ant-design-vue/es/date-picker/locale/zh_CN'
+import 'dayjs/locale/zh-cn'
 import { useRoute, useRouter } from 'vue-router'
 import AnalysisChart from '@/components/AnalysisChart.vue'
 import PageHeader from '@/components/PageHeader.vue'
