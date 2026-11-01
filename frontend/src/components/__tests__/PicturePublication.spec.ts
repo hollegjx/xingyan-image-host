@@ -16,7 +16,11 @@ const stubs = {
   },
   'a-button': { template: '<button><slot /></button>' },
   'a-input': { props: ['value'], template: '<input :value="value" />' },
-  'a-auto-complete': { props: ['value'], emits: ['update:value'], template: `<input :value="value" @input="$emit('update:value', $event.target.value)" />` },
+  'a-auto-complete': {
+    props: ['value'],
+    emits: ['update:value'],
+    template: `<input :value="value" @input="$emit('update:value', $event.target.value)" />`,
+  },
   'a-qrcode': true,
   'a-segmented': true,
   RouterLink: { props: ['to'], template: '<a :href="to"><slot /></a>' },
@@ -44,13 +48,17 @@ describe('private publication', () => {
   })
   it('defaults category from the source, submits edited category and permits cancel', async () => {
     api.submit.mockResolvedValue({ code: 0, data: '123' })
-    const w = mount(Submit, { props: { open: true, picture: { ...picture, category: '原分类' } }, global: globals })
+    const w = mount(Submit, {
+      props: { open: true, picture: { ...picture, category: '原分类' } },
+      global: globals,
+    })
     expect((w.get('#submission-category').element as HTMLInputElement).value).toBe('原分类')
     await w.get('#submission-category').setValue('风景')
     await button(w, '取消').trigger('click')
     expect(w.emitted('update:open')).toEqual([[false]])
     expect(api.submit).not.toHaveBeenCalled()
-    await button(w, '确认投稿').trigger('click'); await flushPromises()
+    await button(w, '确认投稿').trigger('click')
+    await flushPromises()
     expect(api.submit).toHaveBeenCalledWith(picture.id, '风景')
     expect(w.emitted('submitted')).toEqual([['123']])
   })
@@ -111,8 +119,11 @@ describe('private publication', () => {
       await button(w, '复制临时直链').trigger('click')
       await flushPromises()
       expect(writeText).toHaveBeenCalledWith('https://example.invalid/temporary-display')
-      await button(w, '复制 Markdown').trigger('click'); await flushPromises()
-      expect(writeText).toHaveBeenLastCalledWith('![图片](https://example.invalid/temporary-display)')
+      await button(w, '复制 Markdown').trigger('click')
+      await flushPromises()
+      expect(writeText).toHaveBeenLastCalledWith(
+        '![图片](https://example.invalid/temporary-display)',
+      )
       expect(w.text()).toMatch(/到期时间：\d{4}-\d{2}-\d{2} \d{2}:\d{2}/)
       await w.setProps({ open: false })
       expect(w.find('#private-temporary-link').exists()).toBe(false)

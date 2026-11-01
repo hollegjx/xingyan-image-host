@@ -56,7 +56,13 @@ async function mockSpace(
     const request = route.request()
     const url = new URL(request.url())
     const path = url.pathname
-    if (path === '/api/picture/capabilities') return route.fulfill({ json: { code: 0, data: { privateStorageConfigured: true, externalImageSearchEnabled: true } } })
+    if (path === '/api/picture/capabilities')
+      return route.fulfill({
+        json: {
+          code: 0,
+          data: { privateStorageConfigured: true, externalImageSearchEnabled: true },
+        },
+      })
     const body = request.headers()['content-type']?.includes('application/json')
       ? request.postDataJSON()
       : {}
@@ -176,6 +182,7 @@ test('file upload and URL replacement preserve space and picture IDs, then save 
   const upload = requests.find((r) => r.path === '/api/picture/upload')
   expect(upload?.url.searchParams.get('spaceId')).toBe(sid)
   expect(upload?.url.searchParams.has('id')).toBe(false)
+  await page.getByRole('button', { name: '替换图片', exact: true }).click()
   await page.getByRole('tab', { name: 'URL 上传' }).click()
   await page.getByPlaceholder('请输入图片 URL').fill('https://example.com/image.png')
   await page.getByRole('button', { name: /^提\s*交$/ }).click()
@@ -198,6 +205,7 @@ test('quota failure keeps existing picture and edit ownership comes from space',
   await page.goto(`/picture/${pid}`)
   await expect(page.getByRole('button', { name: /编\s*辑$/ })).toBeVisible()
   await page.getByRole('button', { name: /编\s*辑$/ }).click()
+  await page.getByRole('button', { name: '替换图片', exact: true }).click()
   await page.getByRole('tab', { name: 'URL 上传' }).click()
   await page.getByPlaceholder('请输入图片 URL').fill('https://example.com/too-large.png')
   await page.getByRole('button', { name: /^提\s*交$/ }).click()

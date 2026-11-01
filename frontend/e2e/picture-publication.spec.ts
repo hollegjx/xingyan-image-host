@@ -60,7 +60,9 @@ test('owner confirms submission from detail menu and gets my submissions link', 
     'href',
     '/picture/mine',
   )
-  expect(calls).toEqual([{ path: '/api/picture/submit/public', body: { pictureId: '10', category: '' } }])
+  expect(calls).toEqual([
+    { path: '/api/picture/submit/public', body: { pictureId: '10', category: '' } },
+  ])
 })
 
 test('team admin has submission in space card menu and limited display sharing', async ({

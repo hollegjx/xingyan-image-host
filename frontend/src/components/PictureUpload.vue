@@ -25,7 +25,12 @@
       </p>
       <a-tabs v-model:activeKey="uploadMode">
         <a-tab-pane key="file" tab="文件上传" :disabled="urlUploading || disabled">
-          <fieldset class="upload-picker" :disabled="busy || disabled" aria-label="选择图片文件" @drop.capture="handleFileDrop">
+          <fieldset
+            class="upload-picker"
+            :disabled="busy || disabled"
+            aria-label="选择图片文件"
+            @drop.capture="handleFileDrop"
+          >
             <a-upload-dragger
               v-model:file-list="fileList"
               class="upload-dropzone"
@@ -190,11 +195,7 @@ const progress = ref(0)
 const processing = computed(() => loading.value && progress.value >= 100)
 const replacing = ref(false)
 const collapsed = computed(
-  () =>
-    !!props.picture &&
-    !replacing.value &&
-    !busy.value &&
-    !!uploadedPreviewUrl.value,
+  () => !!props.picture && !replacing.value && !busy.value && !!uploadedPreviewUrl.value,
 )
 watch(
   () => loading.value || urlUploading.value,

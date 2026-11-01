@@ -20,7 +20,11 @@
       <!-- 右侧：图片信息 -->
       <aside class="detail-info" aria-label="图片信息">
         <span class="eyebrow">{{ picture.category || '未分类' }}</span>
-        <a-tag v-if="picture.spaceId == null && picture.uploadStatus === 1 && picture.reviewStatus === 0" color="processing">审核中</a-tag>
+        <a-tag
+          v-if="picture.spaceId == null && picture.uploadStatus === 1 && picture.reviewStatus === 0"
+          color="processing"
+          >审核中</a-tag
+        >
         <a-tag v-else-if="picture.spaceId == null && picture.reviewStatus === 3">已撤回</a-tag>
         <h1 class="detail-title">{{ picture.name || '未命名图片' }}</h1>
 
@@ -72,8 +76,17 @@
             <template #icon><ShareAltOutlined /></template>
             分享
           </a-button>
-          <a-button v-if="canFavorite" :loading="favoriteBusy" :aria-pressed="!!picture.favorited" @click="toggleFavorite">
-            <template #icon><HeartFilled v-if="picture.favorited" aria-hidden="true" /><HeartOutlined v-else aria-hidden="true" /></template>
+          <a-button
+            v-if="canFavorite"
+            :loading="favoriteBusy"
+            :aria-pressed="!!picture.favorited"
+            @click="toggleFavorite"
+          >
+            <template #icon
+              ><HeartFilled v-if="picture.favorited" aria-hidden="true" /><HeartOutlined
+                v-else
+                aria-hidden="true"
+            /></template>
             {{ picture.favorited ? '已收藏' : '收藏' }} · {{ picture.favoriteCount ?? 0 }}
           </a-button>
           <PictureSearchButton :picture="picture" />
@@ -112,7 +125,14 @@
 import { ref, watch, onBeforeUnmount, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { message, Modal } from 'ant-design-vue'
-import { EditOutlined, DeleteOutlined, LeftOutlined, ShareAltOutlined, HeartOutlined, HeartFilled } from '@ant-design/icons-vue'
+import {
+  EditOutlined,
+  DeleteOutlined,
+  LeftOutlined,
+  ShareAltOutlined,
+  HeartOutlined,
+  HeartFilled,
+} from '@ant-design/icons-vue'
 import { getPictureVoByIdUsingGet, deletePictureUsingPost } from '@/service/api/pictureController'
 import { setPictureFavorite } from '@/service/api/pictureFavoriteController'
 import { useLoginUserStore } from '@/stores/useLoginUserStore'
@@ -164,7 +184,12 @@ const dimensions = computed(() => {
 })
 let sequence = 0
 const favoriteBusy = ref(false)
-const canFavorite = computed(() => picture.value.spaceId == null && picture.value.uploadStatus === 1 && picture.value.reviewStatus === 1)
+const canFavorite = computed(
+  () =>
+    picture.value.spaceId == null &&
+    picture.value.uploadStatus === 1 &&
+    picture.value.reviewStatus === 1,
+)
 const toggleFavorite = async () => {
   if (!canFavorite.value || favoriteBusy.value || !picture.value.id) return
   if (!loginUserStore.loginUser.id) {

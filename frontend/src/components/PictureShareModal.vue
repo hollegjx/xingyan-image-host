@@ -2,10 +2,14 @@
   <a-modal :open="open" title="分享图片" :footer="null" @cancel="$emit('update:open', false)">
     <p v-if="picture?.spaceId != null" class="share-note">
       空间里的图片没有公开直链。详情页需登录并拥有空间访问权限。
-      <template v-if="canGeneratePrivateLink">你可以生成限时展示图直链；拿到链接的人在有效期内都能查看，成员权限变更不会使已生成的链接失效，请谨慎转发。</template>
+      <template v-if="canGeneratePrivateLink"
+        >你可以生成限时展示图直链；拿到链接的人在有效期内都能查看，成员权限变更不会使已生成的链接失效，请谨慎转发。</template
+      >
       <template v-else>临时直链需由有管理权限的成员生成。</template>
     </p>
-    <p v-else-if="picture?.uploadStatus !== 1 || picture?.reviewStatus !== 1" class="share-note">这张图片尚未公开，接收者仍需通过权限校验。</p>
+    <p v-else-if="picture?.uploadStatus !== 1 || picture?.reviewStatus !== 1" class="share-note">
+      这张图片尚未公开，接收者仍需通过权限校验。
+    </p>
     <template v-if="link">
       <p>分享这张图片在本站的详情页。</p>
       <label for="picture-share-link">图片链接</label>
@@ -34,7 +38,13 @@
           />
           <p>到期时间：{{ expiresAt }}</p>
           <label for="private-markdown">Markdown</label>
-          <a-input id="private-markdown" :value="temporaryMarkdown" readonly aria-label="临时直链 Markdown" @focus="selectLink" />
+          <a-input
+            id="private-markdown"
+            :value="temporaryMarkdown"
+            readonly
+            aria-label="临时直链 Markdown"
+            @focus="selectLink"
+          />
           <a-button @click="copyTemporaryMarkdown">复制 Markdown</a-button>
           <a-button @click="copyTemporaryLink()">复制临时直链</a-button>
         </template>
@@ -133,15 +143,20 @@ async function generateTemporaryLink() {
     if (ticket === temporarySequence) generating.value = false
   }
 }
-const temporaryMarkdown = computed(() => `![${(props.picture?.name || '图片').replace(/[\[\]\r\n]/g, '')}](${temporaryUrl.value})`)
-async function copyTemporaryMarkdown() { await copyTemporaryLink(true) }
+const temporaryMarkdown = computed(
+  () => `![${(props.picture?.name || '图片').replace(/[\[\]\r\n]/g, '')}](${temporaryUrl.value})`,
+)
+async function copyTemporaryMarkdown() {
+  await copyTemporaryLink(true)
+}
 async function copyTemporaryLink(markdown = false) {
   const value = markdown === true ? temporaryMarkdown.value : temporaryUrl.value
   const ticket = temporarySequence
   if (!value) return
   try {
     await navigator.clipboard.writeText(value)
-    if (ticket === temporarySequence) temporaryStatus.value = markdown === true ? 'Markdown 已复制' : '临时直链已复制'
+    if (ticket === temporarySequence)
+      temporaryStatus.value = markdown === true ? 'Markdown 已复制' : '临时直链已复制'
   } catch {
     if (ticket === temporarySequence) temporaryStatus.value = '自动复制失败，请手动复制'
   }
@@ -219,8 +234,17 @@ async function copy() {
 </script>
 
 <style scoped>
-.share-note { background: var(--bg-soft, #f5f6f7); color: var(--muted); padding: 12px; border-radius: 8px; line-height: 1.6; }
-p[role='status'] { min-height: 24px; margin: 4px 0; }
+.share-note {
+  background: var(--bg-soft, #f5f6f7);
+  color: var(--muted);
+  padding: 12px;
+  border-radius: 8px;
+  line-height: 1.6;
+}
+p[role='status'] {
+  min-height: 24px;
+  margin: 4px 0;
+}
 
 .copy-button {
   margin-top: 12px;

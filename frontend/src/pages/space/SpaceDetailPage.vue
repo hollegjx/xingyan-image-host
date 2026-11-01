@@ -1,6 +1,8 @@
 <template>
   <section id="spaceDetailPage" :aria-busy="loading">
-    <div v-if="loading" role="status" aria-label="正在加载空间" aria-busy="true"><a-skeleton active :paragraph="{ rows: 8 }" /></div>
+    <div v-if="loading" role="status" aria-label="正在加载空间" aria-busy="true">
+      <a-skeleton active :paragraph="{ rows: 8 }" />
+    </div>
     <a-spin v-show="!loading" :spinning="loading">
       <a-alert v-if="error" type="error" :message="error" show-icon>
         <template #action>
@@ -12,8 +14,16 @@
       </a-alert>
       <!-- Hide failed loads without discarding the user's search form; the gallery is cleared in load(). -->
       <div v-if="space" v-show="!error">
-        <a-alert v-if="!capabilities.privateStorageConfigured" class="storage-alert" type="warning" show-icon
-          :message="capabilityError || '私有图片存储尚未配置，暂不可上传或替换图片。空间和成员管理仍可使用。'" />
+        <a-alert
+          v-if="!capabilities.privateStorageConfigured"
+          class="storage-alert"
+          type="warning"
+          show-icon
+          :message="
+            capabilityError ||
+            '私有图片存储尚未配置，暂不可上传或替换图片。空间和成员管理仍可使用。'
+          "
+        />
         <header class="space-header">
           <div class="space-heading">
             <span class="space-eyebrow"
@@ -198,7 +208,11 @@
                     <a-menu-item key="view" @click="router.push(`/picture/${item.id}`)"
                       ><EyeOutlined /> 查看详情</a-menu-item
                     >
-                    <a-menu-item v-if="can('edit')" key="edit" :disabled="!capabilities.privateStorageConfigured" @click="upload(item)"
+                    <a-menu-item
+                      v-if="can('edit')"
+                      key="edit"
+                      :disabled="!capabilities.privateStorageConfigured"
+                      @click="upload(item)"
                       ><EditOutlined /> 编辑 / 替换</a-menu-item
                     >
                     <a-menu-item key="share" @click="share(item)"
@@ -539,7 +553,10 @@ async function load() {
 }
 
 function upload(picture?: API.PictureVO | Event) {
-  if (!capabilities.value.privateStorageConfigured) { message.warning('私有图片存储尚未配置'); return }
+  if (!capabilities.value.privateStorageConfigured) {
+    message.warning('私有图片存储尚未配置')
+    return
+  }
   const id = parseId(space.value?.id)
   if (!id) return
   const pictureId = picture && 'id' in picture ? parseId(picture.id) : undefined

@@ -72,9 +72,16 @@
         </template>
         <template v-else-if="column.key === 'name'">
           <strong>{{ record.name || '未命名图片' }}</strong>
-          <div class="picture-summary">{{ record.category || '未分类' }} · {{ formatSize(record.picSize) }} · {{ record.picWidth }} × {{ record.picHeight }}</div>
-          <div><a-tag v-for="tag in record.tags" :key="tag">{{ tag }}</a-tag></div>
-          <div class="picture-summary">{{ record.user?.userName || '匿名用户' }} · {{ formatTime(record.createTime) }}</div>
+          <div class="picture-summary">
+            {{ record.category || '未分类' }} · {{ formatSize(record.picSize) }} ·
+            {{ record.picWidth }} × {{ record.picHeight }}
+          </div>
+          <div>
+            <a-tag v-for="tag in record.tags" :key="tag">{{ tag }}</a-tag>
+          </div>
+          <div class="picture-summary">
+            {{ record.user?.userName || '匿名用户' }} · {{ formatTime(record.createTime) }}
+          </div>
         </template>
         <template v-else-if="column.key === 'tags'">
           <a-tag v-for="tag in record.tags" :key="tag">{{ tag }}</a-tag>
@@ -105,14 +112,16 @@
           <a-space :size="2" wrap>
             <a-button
               v-if="canReviewAs(record, REVIEW_STATUS.PASS)"
-              type="link" size="small"
+              type="link"
+              size="small"
               @click="doReview(record, REVIEW_STATUS.PASS)"
             >
               通过
             </a-button>
             <a-button
               v-if="canReviewAs(record, REVIEW_STATUS.REJECT)"
-              type="link" size="small"
+              type="link"
+              size="small"
               danger
               @click="doReview(record, REVIEW_STATUS.REJECT)"
             >
@@ -142,69 +151,78 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, onMounted, reactive, computed } from 'vue';
-import { message, Modal } from 'ant-design-vue';
-import PictureThumbnail from '@/components/PictureThumbnail.vue';
-import PageHeader from '@/components/PageHeader.vue';
-import type { TablePaginationConfig } from 'ant-design-vue';
+import { ref, onMounted, reactive, computed } from 'vue'
+import { message, Modal } from 'ant-design-vue'
+import PictureThumbnail from '@/components/PictureThumbnail.vue'
+import PageHeader from '@/components/PageHeader.vue'
+import type { TablePaginationConfig } from 'ant-design-vue'
 import {
   listPictureReviewByPageUsingPost,
   deletePictureUsingPost,
   listPictureTagCategoryUsingGet,
   reviewPictureUsingPost,
-} from '@/service/api/pictureController';
-import { useRouter } from 'vue-router';
-import dayjs from 'dayjs';
+} from '@/service/api/pictureController'
+import { useRouter } from 'vue-router'
+import dayjs from 'dayjs'
 import {
   PICTURE_REVIEW_STATUS as REVIEW_STATUS,
   PICTURE_REVIEW_STATUS_OPTIONS,
   PICTURE_REVIEW_STATUS_TEXT,
-} from '@/constants/picture';
-import PictureBatchUploadModal from '@/components/admin/PictureBatchUploadModal.vue';
-import PictureReviewModal from '@/components/admin/PictureReviewModal.vue';
+} from '@/constants/picture'
+import PictureBatchUploadModal from '@/components/admin/PictureBatchUploadModal.vue'
+import PictureReviewModal from '@/components/admin/PictureReviewModal.vue'
 
-const router = useRouter();
+const router = useRouter()
 
 // 格式化时间
 const formatTime = (time?: string) => {
-  if (!time) return '-';
-  return dayjs(time).format('YYYY-MM-DD HH:mm');
-};
+  if (!time) return '-'
+  return dayjs(time).format('YYYY-MM-DD HH:mm')
+}
 
 // 格式化文件大小
 const formatSize = (size: number) => {
-  if (!size) return '-';
-  if (size < 1024) return size + ' B';
-  if (size < 1024 * 1024) return (size / 1024).toFixed(1) + ' KB';
-  return (size / 1024 / 1024).toFixed(1) + ' MB';
-};
+  if (!size) return '-'
+  if (size < 1024) return size + ' B'
+  if (size < 1024 * 1024) return (size / 1024).toFixed(1) + ' KB'
+  return (size / 1024 / 1024).toFixed(1) + ' MB'
+}
 
-const reviewStatusOptions = [{ label: '全部', value: -1 }, ...PICTURE_REVIEW_STATUS_OPTIONS.map(option => ({
-  ...option, label: option.value === REVIEW_STATUS.PASS ? '已通过' : option.value === REVIEW_STATUS.REJECT ? '已拒绝' : option.label,
-}))];
+const reviewStatusOptions = [
+  { label: '全部', value: -1 },
+  ...PICTURE_REVIEW_STATUS_OPTIONS.map((option) => ({
+    ...option,
+    label:
+      option.value === REVIEW_STATUS.PASS
+        ? '已通过'
+        : option.value === REVIEW_STATUS.REJECT
+          ? '已拒绝'
+          : option.label,
+  })),
+]
 
 const getReviewStatusText = (status?: number) => {
-  if (status === undefined || status === null) return '-';
-  return PICTURE_REVIEW_STATUS_TEXT[status] || '未知状态';
-};
+  if (status === undefined || status === null) return '-'
+  return PICTURE_REVIEW_STATUS_TEXT[status] || '未知状态'
+}
 
 const columns = [
   { title: '图片', key: 'url', width: '16%' },
   { title: '作品信息', key: 'name', width: '34%' },
   { title: '审核信息', key: 'reviewInfo', width: '30%' },
   { title: '操作', key: 'action', width: '20%' },
-];
+]
 
-const dataList = ref<API.PictureVO[]>([]);
-const loading = ref(false);
-const total = ref(0);
-const categoryOptions = ref<{ value: string }[]>([]);
-const tagOptions = ref<{ value: string }[]>([]);
-const batchUploadModalOpen = ref(false);
-const reviewModalOpen = ref(false);
-const reviewSubmitting = ref(false);
-const reviewTarget = ref<API.PictureVO>();
-const targetReviewStatus = ref<number>(REVIEW_STATUS.PASS);
+const dataList = ref<API.PictureVO[]>([])
+const loading = ref(false)
+const total = ref(0)
+const categoryOptions = ref<{ value: string }[]>([])
+const tagOptions = ref<{ value: string }[]>([])
+const batchUploadModalOpen = ref(false)
+const reviewModalOpen = ref(false)
+const reviewSubmitting = ref(false)
+const reviewTarget = ref<API.PictureVO>()
+const targetReviewStatus = ref<number>(REVIEW_STATUS.PASS)
 
 // 搜索条件
 const searchParams = reactive<API.PictureQueryRequest>({
@@ -214,19 +232,19 @@ const searchParams = reactive<API.PictureQueryRequest>({
   category: undefined,
   tags: undefined,
   reviewStatus: REVIEW_STATUS.REVIEWING,
-});
+})
 
 const hasFilters = computed(
   () => !!(searchParams.searchText || searchParams.category || searchParams.tags?.length),
-);
+)
 const emptyText = computed(() => {
-  if (hasFilters.value) return '没有符合条件的图片';
-  if (searchParams.reviewStatus === -1) return '还没有投稿';
-  if (searchParams.reviewStatus === REVIEW_STATUS.WITHDRAWN) return '没有已撤回的投稿';
-  if (searchParams.reviewStatus === REVIEW_STATUS.REVIEWING) return '没有待审核的投稿';
-  if (searchParams.reviewStatus === REVIEW_STATUS.REJECT) return '没有已拒绝的图片';
-  return '还没有已通过的图片';
-});
+  if (hasFilters.value) return '没有符合条件的图片'
+  if (searchParams.reviewStatus === -1) return '还没有投稿'
+  if (searchParams.reviewStatus === REVIEW_STATUS.WITHDRAWN) return '没有已撤回的投稿'
+  if (searchParams.reviewStatus === REVIEW_STATUS.REVIEWING) return '没有待审核的投稿'
+  if (searchParams.reviewStatus === REVIEW_STATUS.REJECT) return '没有已拒绝的图片'
+  return '还没有已通过的图片'
+})
 
 // 表格分页配置
 const pagination = computed(() => ({
@@ -236,108 +254,112 @@ const pagination = computed(() => ({
   showSizeChanger: true,
   pageSizeOptions: ['10', '20', '50', '100'],
   showTotal: (total: number) => `共 ${total} 条`,
-}));
+}))
 
 const fetchPictureList = async () => {
-  loading.value = true;
+  loading.value = true
   try {
-    const res = await listPictureReviewByPageUsingPost({ ...searchParams, allReviewStatuses: searchParams.reviewStatus === -1, reviewStatus: searchParams.reviewStatus === -1 ? undefined : searchParams.reviewStatus });
+    const res = await listPictureReviewByPageUsingPost({
+      ...searchParams,
+      allReviewStatuses: searchParams.reviewStatus === -1,
+      reviewStatus: searchParams.reviewStatus === -1 ? undefined : searchParams.reviewStatus,
+    })
     if (res.code === 0 && res.data) {
-      dataList.value = res.data.records || [];
-      total.value = Number(res.data.total || 0);
+      dataList.value = res.data.records || []
+      total.value = Number(res.data.total || 0)
     } else {
-      message.error('获取图片列表失败：' + res.message);
+      message.error('获取图片列表失败：' + res.message)
     }
   } catch {
-    message.error('获取图片列表失败');
+    message.error('获取图片列表失败')
   } finally {
-    loading.value = false;
+    loading.value = false
   }
-};
+}
 
 const handleTableChange = (pag: TablePaginationConfig) => {
-  searchParams.current = pag.current;
-  searchParams.pageSize = pag.pageSize;
-  fetchPictureList();
-};
+  searchParams.current = pag.current
+  searchParams.pageSize = pag.pageSize
+  fetchPictureList()
+}
 
 // 搜索
 const doSearch = () => {
-  searchParams.current = 1;
-  fetchPictureList();
-};
+  searchParams.current = 1
+  fetchPictureList()
+}
 
 const switchStatus = (reviewStatus: number) => {
-  searchParams.reviewStatus = reviewStatus;
-  doSearch();
-};
+  searchParams.reviewStatus = reviewStatus
+  doSearch()
+}
 
 // 重置
 const doReset = () => {
-  searchParams.current = 1;
-  searchParams.searchText = undefined;
-  searchParams.category = undefined;
-  searchParams.tags = undefined;
-  searchParams.reviewStatus = REVIEW_STATUS.REVIEWING;
-  fetchPictureList();
-};
+  searchParams.current = 1
+  searchParams.searchText = undefined
+  searchParams.category = undefined
+  searchParams.tags = undefined
+  searchParams.reviewStatus = REVIEW_STATUS.REVIEWING
+  fetchPictureList()
+}
 
 // 编辑
 const doEdit = (record: API.PictureVO) => {
   router.push({
     path: '/picture/add',
     query: { id: record.id },
-  });
-};
+  })
+}
 
 // 打开审核弹窗
 const doReview = (record: API.PictureVO, reviewStatus: number) => {
   if (!record.id) {
-    message.error('图片 ID 不能为空');
-    return;
+    message.error('图片 ID 不能为空')
+    return
   }
-  reviewTarget.value = record;
-  targetReviewStatus.value = reviewStatus;
-  reviewModalOpen.value = true;
-};
+  reviewTarget.value = record
+  targetReviewStatus.value = reviewStatus
+  reviewModalOpen.value = true
+}
 
 const submitReview = async (reviewMessage: string) => {
-  if (reviewSubmitting.value || !reviewTarget.value?.id) return;
-  reviewSubmitting.value = true;
+  if (reviewSubmitting.value || !reviewTarget.value?.id) return
+  reviewSubmitting.value = true
   try {
     const res = await reviewPictureUsingPost({
       id: reviewTarget.value.id,
       reviewStatus: targetReviewStatus.value,
       reviewMessage: reviewMessage || undefined,
-    });
+    })
     if (res.code === 0) {
-      message.success('审核成功');
-      reviewModalOpen.value = false;
-      reviewTarget.value = undefined;
-      fetchPictureList();
+      message.success('审核成功')
+      reviewModalOpen.value = false
+      reviewTarget.value = undefined
+      fetchPictureList()
     } else {
-      message.error('审核失败：' + res.message);
+      message.error('审核失败：' + res.message)
     }
   } catch {
-    message.error('审核失败');
+    message.error('审核失败')
   } finally {
-    reviewSubmitting.value = false;
+    reviewSubmitting.value = false
   }
-};
+}
 
 const canReviewAs = (record: API.PictureVO, reviewStatus: number) => {
-  return record.reviewStatus !== REVIEW_STATUS.WITHDRAWN && record.reviewStatus !== reviewStatus;
-};
+  return record.reviewStatus !== REVIEW_STATUS.WITHDRAWN && record.reviewStatus !== reviewStatus
+}
 
 const openBatchUploadModal = () => {
-  batchUploadModalOpen.value = true;
-};
+  batchUploadModalOpen.value = true
+}
 
 const handleBatchUploadSuccess = () => {
-  searchParams.current = 1;
-  searchParams.reviewStatus = REVIEW_STATUS.PASS;
-  fetchPictureList();
-};
+  searchParams.current = 1
+  searchParams.reviewStatus = REVIEW_STATUS.PASS
+  fetchPictureList()
+}
 
 // 删除
 const doDelete = (record: API.PictureVO) => {
@@ -349,49 +371,70 @@ const doDelete = (record: API.PictureVO) => {
     okType: 'danger',
     async onOk() {
       try {
-        const res = await deletePictureUsingPost({ id: record.id });
+        const res = await deletePictureUsingPost({ id: record.id })
         if (res.code === 0) {
-          message.success('删除成功');
-          fetchPictureList();
+          message.success('删除成功')
+          fetchPictureList()
         } else {
-          message.error('删除失败：' + res.message);
+          message.error('删除失败：' + res.message)
         }
       } catch {
-        message.error('删除失败');
+        message.error('删除失败')
       }
     },
-  });
-};
+  })
+}
 
 onMounted(() => {
-  fetchPictureList();
-  fetchTagOptions();
-});
+  fetchPictureList()
+  fetchTagOptions()
+})
 
 // 获取分类和标签选项
 const fetchTagOptions = async () => {
   try {
-    const res = await listPictureTagCategoryUsingGet();
+    const res = await listPictureTagCategoryUsingGet()
     if (res.code === 0 && res.data) {
-      categoryOptions.value = (res.data.categoryList || []).map((category) => ({ value: category }));
-      tagOptions.value = (res.data.tagList || []).map((tag) => ({ value: tag }));
+      categoryOptions.value = (res.data.categoryList || []).map((category) => ({ value: category }))
+      tagOptions.value = (res.data.tagList || []).map((tag) => ({ value: tag }))
     }
   } catch (error) {
-    console.error('获取标签列表失败', error);
+    console.error('获取标签列表失败', error)
   }
-};
+}
 </script>
 
 <style scoped>
-:deep(.ant-table-cell) { overflow-wrap: anywhere; white-space: normal; }
-:deep(.ant-table-cell .ant-image), :deep(.ant-table-cell img) { max-width: 100%; }
-:deep(.ant-tag) { white-space: normal; margin-top: 4px; }
-.picture-summary { color: var(--muted); font-size: 12px; margin: 6px 0; }
+:deep(.ant-table-cell) {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+:deep(.ant-table-cell .ant-image),
+:deep(.ant-table-cell img) {
+  max-width: 100%;
+}
+:deep(.ant-tag) {
+  white-space: normal;
+  margin-top: 4px;
+}
+.picture-summary {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 6px 0;
+}
 @media (max-width: 600px) {
-  :deep(.ant-table-cell) { padding: 8px 4px !important; }
-  :deep(.ant-table-cell .ant-space) { gap: 0 !important; }
-  .status-switch { max-width: 100%; }
-  :deep(.ant-segmented-group) { flex-wrap: wrap; }
+  :deep(.ant-table-cell) {
+    padding: 8px 4px !important;
+  }
+  :deep(.ant-table-cell .ant-space) {
+    gap: 0 !important;
+  }
+  .status-switch {
+    max-width: 100%;
+  }
+  :deep(.ant-segmented-group) {
+    flex-wrap: wrap;
+  }
 }
 
 .search-form {

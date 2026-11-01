@@ -1,0 +1,39 @@
+--- a/backend/src/main/java/learn/gjx/tuku1/service/impl/PictureServiceImpl.java
++++ b/backend/src/main/java/learn/gjx/tuku1/service/impl/PictureServiceImpl.java
+@@ -850,7 +850,7 @@
+         if (!PictureReviewStatusEnum.isReviewResult(reviewStatus)) {
+             throw new BusinessException(ErrorCode.PARAMS_ERROR, "审核状态只能为通过或拒绝");
+         }
+-        Picture oldPicture = this.getById(pictureId);
++        Picture oldPicture = baseMapper.selectForUpdate(pictureId);
+         if (oldPicture == null) {
+             throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "图片不存在");
+         }
+@@ -858,6 +858,10 @@
+             throw new BusinessException(ErrorCode.PARAMS_ERROR, "草稿图片不能审核");
+         }
+         pictureAccessManager.requirePublic(oldPicture);
++        if (Objects.equals(oldPicture.getReviewStatus(), 3)) {
++            log.warn("已撤回的投稿不能审核");
++            throw new BusinessException(ErrorCode.OPERATION_ERROR, "投稿已撤回，请刷新列表");
++        }
+         if (Objects.equals(oldPicture.getReviewStatus(), reviewStatus)) {
+             throw new BusinessException(ErrorCode.PARAMS_ERROR, "请勿重复审核");
+         }
+--- a/backend/src/test/java/learn/gjx/tuku1/service/impl/PrivatePictureAccessIntegrationTest.java
++++ b/backend/src/test/java/learn/gjx/tuku1/service/impl/PrivatePictureAccessIntegrationTest.java
+@@ -143,6 +143,14 @@
+         }
+     }
+ 
++    @Test void withdrawnSubmissionCannotBeReviewedByAdministrator() {
++        jdbc.update("UPDATE picture SET reviewStatus=3,uploadStatus=1 WHERE id=14");
++        learn.gjx.tuku1.model.dto.picture.PictureReviewRequest input = new learn.gjx.tuku1.model.dto.picture.PictureReviewRequest(); input.setId(14L); input.setReviewStatus(1);
++        User admin = new User(); admin.setId(1L); admin.setUserRole(1);
++        assertThrows(BusinessException.class, () -> service.reviewPicture(input, admin));
++        assertEquals(3, jdbc.queryForObject("SELECT reviewStatus FROM picture WHERE id=14", Integer.class));
++    }
++
+     @Test
+     void cleanupMigrationIsRepeatableAndPreservesExistingPicturesAndUsage() throws Exception {
+         List<Map<String, Object>> before = jdbc.queryForList("SELECT * FROM picture ORDER BY id");

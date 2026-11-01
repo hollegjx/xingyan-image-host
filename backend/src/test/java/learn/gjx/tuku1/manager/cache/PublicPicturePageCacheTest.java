@@ -87,7 +87,7 @@ class PublicPicturePageCacheTest {
     }
 
     @Test
-    void normalizationForcesPublicScopeWithoutMutatingCaller() {
+    void normalizationForcesPublicScopeWithoutMutatingCaller() throws Exception {
         PictureQueryRequest source = new PictureQueryRequest();
         source.setReviewStatus(2);
         source.setAllReviewStatuses(true);

@@ -62,7 +62,12 @@ export function submissionState(picture: API.PictureVO) {
         action: '编辑作品',
       }
     if (picture.reviewStatus === REVIEW.WITHDRAWN)
-      return { key: 'withdrawn', label: '已撤回', hint: '已停止审核，修改并提交后可重新审核。', action: '修改并提交' }
+      return {
+        key: 'withdrawn',
+        label: '已撤回',
+        hint: '已停止审核，修改并提交后可重新审核。',
+        action: '修改并提交',
+      }
     if (picture.reviewStatus === REVIEW.REJECT)
       return {
         key: 'rejected',

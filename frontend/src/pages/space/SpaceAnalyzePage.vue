@@ -25,8 +25,28 @@
           <option value="month">按月</option>
         </select>
       </label>
-      <div class="analysis-date"><label for="analysis-start">开始日期</label><a-date-picker id="analysis-start" v-model:value="startDate" value-format="YYYY-MM-DD" format="YYYY-MM-DD" :locale="dateLocale" placeholder="开始日期" /></div>
-      <div class="analysis-date"><label for="analysis-end">结束日期</label><a-date-picker id="analysis-end" v-model:value="endDate" value-format="YYYY-MM-DD" format="YYYY-MM-DD" :locale="dateLocale" placeholder="结束日期" /></div>
+      <div class="analysis-date">
+        <label for="analysis-start">开始日期</label
+        ><a-date-picker
+          id="analysis-start"
+          v-model:value="startDate"
+          value-format="YYYY-MM-DD"
+          format="YYYY-MM-DD"
+          :locale="dateLocale"
+          placeholder="开始日期"
+        />
+      </div>
+      <div class="analysis-date">
+        <label for="analysis-end">结束日期</label
+        ><a-date-picker
+          id="analysis-end"
+          v-model:value="endDate"
+          value-format="YYYY-MM-DD"
+          format="YYYY-MM-DD"
+          :locale="dateLocale"
+          placeholder="结束日期"
+        />
+      </div>
       <label v-if="adminView && scope === 'PUBLIC'"
         >趋势用户 ID
         <input
@@ -110,7 +130,9 @@
           </a-card>
           <a-card title="图片大小分布">
             <AnalysisChart title="图片大小分布" :data="data.sizes || []" />
-            <p class="caption">区间含下限、不含上限；按原图大小统计，不含缩略图等衍生文件占用的存储。</p>
+            <p class="caption">
+              区间含下限、不含上限；按原图大小统计，不含缩略图等衍生文件占用的存储。
+            </p>
           </a-card>
           <a-card v-if="scope !== 'ALL'" title="热门标签 Top 30" class="wide">
             <AnalysisChart title="热门标签" :data="data.tags || []" value-name="使用图片数" />

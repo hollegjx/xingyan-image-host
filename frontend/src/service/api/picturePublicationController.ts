@@ -17,6 +17,7 @@ export function generatePrivatePictureLink(pictureId: string | number, validHour
 
 export function changePendingSubmission(pictureId: string | number, action: 'withdraw' | 'delete') {
   return request<API.BaseResponseBoolean_>(`/api/picture/submission/${action}`, {
-    method: 'POST', data: { pictureId },
+    method: 'POST',
+    data: { pictureId },
   })
 }

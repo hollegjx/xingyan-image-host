@@ -12,15 +12,25 @@
     </template>
     <template v-else>
       <label for="submission-category">分类</label>
-      <a-auto-complete id="submission-category" v-model:value="category" :options="categoryOptions"
-        :disabled="busy" placeholder="选择或输入分类" :maxlength="64" allow-clear style="width: 100%" />
+      <a-auto-complete
+        id="submission-category"
+        v-model:value="category"
+        :options="categoryOptions"
+        :disabled="busy"
+        placeholder="选择或输入分类"
+        :maxlength="64"
+        allow-clear
+        style="width: 100%"
+      />
       <p v-if="error" role="alert">{{ error }}</p>
       <RouterLink v-if="error" to="/picture/mine">查看我的投稿</RouterLink>
       <a-button type="primary" :loading="busy" :disabled="!picture?.id" @click="submit"
         >确认投稿</a-button
       >
     </template>
-    <a-button :disabled="busy" @click="$emit('update:open', false)">{{ submitted ? '关闭' : '取消' }}</a-button>
+    <a-button :disabled="busy" @click="$emit('update:open', false)">{{
+      submitted ? '关闭' : '取消'
+    }}</a-button>
   </a-modal>
 </template>
 
@@ -48,11 +58,14 @@ watch(
     categoryOptions.value = category.value ? [{ value: category.value }] : []
     if (props.open) {
       const ticket = sequence
-      void listPictureTagCategoryUsingGet().then((res) => {
-        if (ticket !== sequence) return
-        categoryOptions.value = [...new Set([category.value, ...(res.data?.categoryList || [])])]
-          .filter(Boolean).map(value => ({ value }))
-      }).catch(() => {})
+      void listPictureTagCategoryUsingGet()
+        .then((res) => {
+          if (ticket !== sequence) return
+          categoryOptions.value = [...new Set([category.value, ...(res.data?.categoryList || [])])]
+            .filter(Boolean)
+            .map((value) => ({ value }))
+        })
+        .catch(() => {})
     }
   },
   { immediate: true },

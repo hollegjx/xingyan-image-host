@@ -30,7 +30,9 @@ test('admin review list switches status immediately and explains an empty queue'
   await expect(page.getByText('没有待审核的投稿')).toBeVisible()
   expect(statuses).toEqual([0])
   await page.getByRole('button', { name: '查看已通过的图片' }).click()
-  await expect(page.getByRole('cell').filter({ has: page.getByText('已通过的图片', { exact: true }) })).toBeVisible()
+  await expect(
+    page.getByRole('cell').filter({ has: page.getByText('已通过的图片', { exact: true }) }),
+  ).toBeVisible()
   await page.getByText('已拒绝', { exact: true }).click()
   await expect(page.getByText('没有已拒绝的图片')).toBeVisible()
   expect(statuses).toEqual([0, 1, 2])
