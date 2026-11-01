@@ -127,6 +127,10 @@ public class PictureVO implements Serializable {
      */
     private Long reviewerId;
 
+    /** 仅管理员审核列表填充的显示名称。 */
+    @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+    private String reviewerName;
+
     /**
      * 审核时间
      */

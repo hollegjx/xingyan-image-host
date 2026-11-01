@@ -595,7 +595,7 @@ function deleteSpace() {
   if (!id) return
   Modal.confirm({
     title: '删除空空间？',
-    content: '仅没有图片引用的空间可以删除。已逻辑删除的历史图片仍可能阻止删除空间。',
+    content: '仅空空间可以删除。如果已删除的图片仍在清理中，请稍后重试。',
     async onOk() {
       try {
         const res = await deleteSpaceUsingPost({ id })

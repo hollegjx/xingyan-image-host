@@ -25,8 +25,8 @@
           <option value="month">按月</option>
         </select>
       </label>
-      <label>开始日期<input v-model="startDate" type="date" aria-label="开始日期" /></label>
-      <label>结束日期<input v-model="endDate" type="date" aria-label="结束日期" /></label>
+      <div class="analysis-date"><label for="analysis-start">开始日期</label><a-date-picker id="analysis-start" v-model:value="startDate" value-format="YYYY-MM-DD" format="YYYY-MM-DD" :locale="dateLocale" placeholder="开始日期" /></div>
+      <div class="analysis-date"><label for="analysis-end">结束日期</label><a-date-picker id="analysis-end" v-model:value="endDate" value-format="YYYY-MM-DD" format="YYYY-MM-DD" :locale="dateLocale" placeholder="结束日期" /></div>
       <label v-if="adminView && scope === 'PUBLIC'"
         >趋势用户 ID
         <input
@@ -166,6 +166,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import dateLocale from 'ant-design-vue/es/date-picker/locale/zh_CN'
 import { useRoute, useRouter } from 'vue-router'
 import AnalysisChart from '@/components/AnalysisChart.vue'
 import PageHeader from '@/components/PageHeader.vue'

@@ -1,6 +1,6 @@
 <template>
   <div class="picture-upload" :class="{ 'is-busy': busy }" :aria-busy="busy">
-    <!-- 编辑已完成的图片时只展示当前图片，需要替换时再展开上传区 -->
+    <!-- 上传完成后收起大拖放区，为名称和简介留出空间。 -->
     <div v-if="collapsed" class="file-preview-card">
       <img class="file-preview" :src="uploadedPreviewUrl" alt="当前图片" />
       <div class="preview-caption">
@@ -192,7 +192,6 @@ const replacing = ref(false)
 const collapsed = computed(
   () =>
     !!props.picture &&
-    props.picture.uploadStatus !== 0 &&
     !replacing.value &&
     !busy.value &&
     !!uploadedPreviewUrl.value,

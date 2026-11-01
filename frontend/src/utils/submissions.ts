@@ -9,6 +9,7 @@ export const submissionFilters = [
   { key: 'reviewing', label: '待审核' },
   { key: 'draft', label: '草稿' },
   { key: 'rejected', label: '需修改' },
+  { key: 'withdrawn', label: '已撤回' },
 ] as const
 export type SubmissionFilter = (typeof submissionFilters)[number]['key']
 
@@ -41,6 +42,7 @@ export function submissionRequest(
       published: REVIEW.PASS,
       reviewing: REVIEW.REVIEWING,
       rejected: REVIEW.REJECT,
+      withdrawn: REVIEW.WITHDRAWN,
     }[state.status]
   }
   return request
@@ -59,6 +61,8 @@ export function submissionState(picture: API.PictureVO) {
         hint: '审核通过后，会出现在公共图库。',
         action: '编辑作品',
       }
+    if (picture.reviewStatus === REVIEW.WITHDRAWN)
+      return { key: 'withdrawn', label: '已撤回', hint: '已停止审核，修改并提交后可重新审核。', action: '修改并提交' }
     if (picture.reviewStatus === REVIEW.REJECT)
       return {
         key: 'rejected',

@@ -140,6 +140,65 @@ class PicturePublicationIntegrationTest {
     @ParameterizedTest @ValueSource(ints={0,2,25,169,-1}) void otherLifetimesAreRejected(int hours) {
         assertThrows(BusinessException.class,()->service.temporaryLink(10L,hours,user(1)));verifyNoInteractions(privateFiles);
     }
+    @Test void categoryOverrideIsValidatedBeforeCopyAndDoesNotChangeSource() {
+        assertThrows(BusinessException.class, () -> service.submit(10L, String.join("", Collections.nCopies(65, "x")), user(1)));
+        verifyNoInteractions(files);
+        long id = service.submit(10L, " 自然 ", user(1));
+        assertEquals("自然", picture(id).getCategory()); assertEquals("category", picture(10).getCategory());
+    }
+    @Test void ownerWithdrawsPendingCopyWithoutRemovingFilesOrSource() {
+        Picture original = picture(10); long id = service.submit(10L, user(1));
+        assertTrue(service.changePending(id, false, user(1)));
+        assertEquals(3, picture(id).getReviewStatus()); assertEquals(1, picture(id).getUploadStatus());
+        assertEquals(original, picture(10)); assertEquals(0, count("public_file_cleanup"));
+        assertThrows(BusinessException.class, () -> service.changePending(id, false, user(1)));
+        assertNotEquals(id, service.submit(10L, user(1)));
+    }
+    @Test void ownerDeletesOnlyPendingCopyAndQueuesItsFiles() {
+        Picture original = picture(10); long id = service.submit(10L, user(1));
+        assertTrue(service.changePending(id, true, user(1)));
+        assertNull(picture(id)); assertEquals(original, picture(10));
+        assertEquals(3, count("public_file_cleanup"));
+        assertThrows(BusinessException.class, () -> service.changePending(id, true, user(1)));
+        assertEquals(123, jdbc.queryForObject("SELECT totalSize FROM space WHERE id=10", Long.class));
+    }
+    @ParameterizedTest @ValueSource(longs={2,4,5})
+    void otherUsersIncludingSiteAndTeamAdminsCannotChangeSomeoneElsesSubmission(long actorId) {
+        long id = service.submit(20L, user(1));
+        assertThrows(BusinessException.class, () -> service.changePending(id, false, user(actorId)));
+        assertThrows(BusinessException.class, () -> service.changePending(id, true, user(actorId)));
+        assertEquals(0, picture(id).getReviewStatus()); assertEquals(0, count("public_file_cleanup"));
+    }
+    @ParameterizedTest @ValueSource(ints={1,2,3})
+    void reviewedOrWithdrawnSubmissionCannotBeChanged(int state) {
+        long id = service.submit(10L, user(1)); jdbc.update("UPDATE picture SET reviewStatus=? WHERE id=?", state, id);
+        assertThrows(BusinessException.class, () -> service.changePending(id, false, user(1)));
+        assertThrows(BusinessException.class, () -> service.changePending(id, true, user(1)));
+        assertEquals(state, picture(id).getReviewStatus());
+    }
+    @Test void draftPrivateAnonymousAndInvalidLifecycleRequestsAreRejected() {
+        long id = service.submit(10L, user(1)); jdbc.update("UPDATE picture SET uploadStatus=0 WHERE id=?", id);
+        assertThrows(BusinessException.class, () -> service.changePending(id, true, user(1)));
+        assertThrows(BusinessException.class, () -> service.changePending(10L, true, user(1)));
+        assertThrows(BusinessException.class, () -> service.changePending(id, false, null));
+        assertThrows(BusinessException.class, () -> service.changePending(null, false, user(1)));
+        assertThrows(BusinessException.class, () -> service.changePending(-1L, false, user(1)));
+        assertEquals(0, count("public_file_cleanup"));
+    }
+    @Test void concurrentWithdrawAndDeleteAllowOnlyOneTransition() throws Exception {
+        long id = service.submit(10L, user(1));
+        ExecutorService pool = Executors.newFixedThreadPool(2); CyclicBarrier gate = new CyclicBarrier(2);
+        try {
+            List<Future<Boolean>> futures = Arrays.asList(
+                pool.submit(() -> { gate.await(); return service.changePending(id, false, user(1)); }),
+                pool.submit(() -> { gate.await(); return service.changePending(id, true, user(1)); }));
+            int success = 0, refused = 0;
+            for (Future<Boolean> f : futures) try { assertTrue(f.get(10, TimeUnit.SECONDS)); success++; }
+                catch (ExecutionException e) { assertInstanceOf(BusinessException.class, e.getCause()); refused++; }
+            assertEquals(1, success); assertEquals(1, refused); assertNotNull(picture(10));
+        } finally { pool.shutdownNow(); }
+    }
+
     @TestConfiguration @EnableAutoConfiguration
     @Import({MybatisPlusConfig.class,PictureServicePublication.class,PictureAccessManager.class,PictureFileCleanupManager.class,PictureListRevision.class})
     static class TestApplication {

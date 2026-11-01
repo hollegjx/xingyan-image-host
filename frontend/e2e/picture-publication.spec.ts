@@ -51,17 +51,16 @@ test('owner confirms submission from detail menu and gets my submissions link', 
 }) => {
   const calls = await mockPublication(page, 'owner')
   await page.goto('/picture/10')
-  await page.getByRole('button', { name: '更多 ···' }).click()
-  await page.getByRole('menuitem', { name: '投稿到公共图库' }).click()
+  await page.getByRole('button', { name: '投稿', exact: true }).click()
   await expect(page.getByText('审核通过后所有人可见')).toBeVisible()
   expect(calls).toHaveLength(0)
   await page.getByRole('button', { name: '确认投稿' }).click()
-  await expect(page.getByText('投稿成功，等待审核')).toBeVisible()
+  await expect(page.getByRole('status').filter({ hasText: '已提交，等待审核' })).toBeVisible()
   await expect(page.getByRole('link', { name: '查看我的投稿' })).toHaveAttribute(
     'href',
     '/picture/mine',
   )
-  expect(calls).toEqual([{ path: '/api/picture/submit/public', body: { pictureId: '10' } }])
+  expect(calls).toEqual([{ path: '/api/picture/submit/public', body: { pictureId: '10', category: '' } }])
 })
 
 test('team admin has submission in space card menu and limited display sharing', async ({
@@ -72,7 +71,7 @@ test('team admin has submission in space card menu and limited display sharing',
   await page.locator('.picture-menu').click()
   await expect(page.getByRole('menuitem', { name: '投稿到公共图库' })).toBeVisible()
   await page.getByRole('menuitem', { name: '分享', exact: true }).click()
-  await expect(page.getByText('拿到链接的人在有效期内都能看到这张图')).toBeVisible()
+  await expect(page.getByText('拿到链接的人在有效期内都能查看')).toBeVisible()
   await page.getByLabel('有效期', { exact: true }).selectOption('24')
   expect(calls).toHaveLength(0)
   await page.getByRole('button', { name: '生成临时直链' }).click()
@@ -93,7 +92,7 @@ for (const role of ['viewer', 'editor'] as const)
     const calls = await mockPublication(page, role)
     await page.goto('/picture/10')
     await expect(page.getByRole('heading', { name: '空间作品' })).toBeVisible()
-    await expect(page.getByRole('button', { name: '更多 ···' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: '投稿', exact: true })).toHaveCount(0)
     await page.getByRole('button', { name: '分享', exact: true }).click()
     await expect(page.getByRole('button', { name: '生成临时直链' })).toHaveCount(0)
     expect(calls).toHaveLength(0)

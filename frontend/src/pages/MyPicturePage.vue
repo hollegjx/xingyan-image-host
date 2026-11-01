@@ -119,6 +119,10 @@
             >
               {{ submissionState(picture).hint }}
             </p>
+            <div v-if="picture.uploadStatus === 1 && picture.reviewStatus === 0" class="submission-pending-actions">
+              <a-button size="small" :disabled="!!acting" @click="managePending(picture, 'withdraw')">撤回</a-button>
+              <a-button size="small" danger :disabled="!!acting" @click="managePending(picture, 'delete')">删除投稿</a-button>
+            </div>
             <div class="submission-card-actions">
               <router-link
                 :to="{ path: '/picture/add', query: { id: picture.id } }"
@@ -151,7 +155,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { message, Modal } from 'ant-design-vue'
+import { changePendingSubmission } from '@/service/api/picturePublicationController'
 import { useRoute, useRouter } from 'vue-router'
 import {
   ArrowRightOutlined,
@@ -184,6 +190,32 @@ const dataList = ref<API.PictureVO[]>([]),
   loading = ref(true),
   error = ref('')
 const isFiltered = computed(() => state.value.status !== 'all' || !!state.value.search)
+const acting = ref<string | number>()
+function managePending(picture: API.PictureVO, action: 'withdraw' | 'delete') {
+  if (!picture.id || acting.value) return
+  const id = picture.id
+  Modal.confirm({
+    title: action === 'withdraw' ? '撤回这份投稿？' : '删除这份投稿？',
+    content: action === 'withdraw' ? '撤回后停止审核，之后可以修改并重新提交。空间原图不受影响。' : '只删除公共投稿副本，空间原图不受影响。',
+    okText: action === 'withdraw' ? '撤回' : '删除', cancelText: '取消',
+    async onOk() {
+      if (acting.value) return
+      acting.value = id
+      try {
+        const result = await changePendingSubmission(id, action)
+        if (result.code !== 0 || !result.data) throw new Error(result.message || '操作失败')
+        message.success(action === 'withdraw' ? '已撤回投稿' : '已删除投稿')
+        await fetchData()
+      } catch (e) { message.error(e instanceof Error ? e.message : '操作失败，请重试') }
+      finally { acting.value = undefined }
+    },
+  })
+}
+function refreshVisible() { if (document.visibilityState === 'visible') void fetchData() }
+onMounted(() => {
+  window.addEventListener('picture-submission-changed', fetchData)
+  document.addEventListener('visibilitychange', refreshVisible)
+})
 let sequence = 0
 function changeQuery(patch: Partial<ReturnType<typeof parseSubmissionQuery>>) {
   const next = { ...state.value, ...patch }
@@ -238,6 +270,8 @@ watch(
   { immediate: true },
 )
 onBeforeUnmount(() => {
+  window.removeEventListener('picture-submission-changed', fetchData)
+  document.removeEventListener('visibilitychange', refreshVisible)
   sequence++
 })
 </script>

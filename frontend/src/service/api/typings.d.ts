@@ -407,6 +407,7 @@ declare namespace API {
   }
 
   type PictureQueryRequest = {
+    allReviewStatuses?: boolean
     category?: string
     current?: number
     endEditTime?: string
@@ -470,6 +471,7 @@ declare namespace API {
   }
 
   type PictureVO = {
+    reviewerName?: string
     category?: string
     createTime?: string
     editTime?: string

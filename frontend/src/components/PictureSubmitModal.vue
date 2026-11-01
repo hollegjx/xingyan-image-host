@@ -7,24 +7,32 @@
       description="会复制一份图片到公共图库并进入待审核，空间里的原图保持不变。请确认你有权公开这张图片。"
     />
     <template v-if="submitted">
-      <p role="status">投稿成功，等待审核</p>
+      <p role="status">已提交，等待审核</p>
       <RouterLink to="/picture/mine">查看我的投稿</RouterLink>
     </template>
     <template v-else>
+      <label for="submission-category">分类</label>
+      <a-auto-complete id="submission-category" v-model:value="category" :options="categoryOptions"
+        :disabled="busy" placeholder="选择或输入分类" :maxlength="64" allow-clear style="width: 100%" />
       <p v-if="error" role="alert">{{ error }}</p>
       <RouterLink v-if="error" to="/picture/mine">查看我的投稿</RouterLink>
       <a-button type="primary" :loading="busy" :disabled="!picture?.id" @click="submit"
         >确认投稿</a-button
       >
     </template>
+    <a-button :disabled="busy" @click="$emit('update:open', false)">{{ submitted ? '关闭' : '取消' }}</a-button>
   </a-modal>
 </template>
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import { message } from 'ant-design-vue'
+import { listPictureTagCategoryUsingGet } from '@/service/api/pictureController'
 import { submitPublicPicture } from '@/service/api/picturePublicationController'
 const props = defineProps<{ open: boolean; picture?: API.PictureVO }>()
-defineEmits<{ 'update:open': [value: boolean] }>()
+const emit = defineEmits<{ 'update:open': [value: boolean]; submitted: [id: string | number] }>()
+const category = ref('')
+const categoryOptions = ref<{ value: string }[]>([])
 const busy = ref(false)
 const submitted = ref(false)
 const error = ref('')
@@ -36,7 +44,18 @@ watch(
     busy.value = false
     submitted.value = false
     error.value = ''
+    category.value = props.picture?.category || ''
+    categoryOptions.value = category.value ? [{ value: category.value }] : []
+    if (props.open) {
+      const ticket = sequence
+      void listPictureTagCategoryUsingGet().then((res) => {
+        if (ticket !== sequence) return
+        categoryOptions.value = [...new Set([category.value, ...(res.data?.categoryList || [])])]
+          .filter(Boolean).map(value => ({ value }))
+      }).catch(() => {})
+    }
   },
+  { immediate: true },
 )
 async function submit() {
   if (!props.open || !props.picture?.id || busy.value || submitted.value) return
@@ -44,10 +63,13 @@ async function submit() {
   busy.value = true
   error.value = ''
   try {
-    const result = await submitPublicPicture(props.picture.id)
+    const result = await submitPublicPicture(props.picture.id, category.value.trim())
     if (ticket !== sequence) return
     if (result.code !== 0 || !result.data) throw new Error(result.message || '投稿失败，请重试')
     submitted.value = true
+    message.success('已提交，等待审核')
+    emit('submitted', result.data)
+    window.dispatchEvent(new Event('picture-submission-changed'))
   } catch (e) {
     if (ticket === sequence) error.value = e instanceof Error ? e.message : '投稿失败，请重试'
   } finally {

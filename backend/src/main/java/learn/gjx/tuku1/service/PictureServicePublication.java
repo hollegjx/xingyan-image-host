@@ -32,6 +32,12 @@ public class PictureServicePublication {
     @Resource private TransactionTemplate transactionTemplate;
 
     public long submit(Long id, User actor) {
+        return submit(id, null, actor);
+    }
+
+    public long submit(Long id, String category, User actor) {
+        if (category != null && category.length() > 64)
+            throw failure(ErrorCode.PARAMS_ERROR, "分类不能超过64个字符");
         Picture expected = readableSource(id, actor);
         rejectDuplicate(id);
         // 云端 IO 不持有业务锁；所有目标对象在上传前已独立登记清理凭据。
@@ -45,6 +51,7 @@ public class PictureServicePublication {
                 result.setId(null); result.setSpaceId(null); result.setUserId(actor.getId());
                 result.setUrl(copied.getUrl()); result.setOriginalUrl(copied.getOriginalUrl());
                 result.setThumbnailUrl(copied.getThumbnailUrl()); result.setSourceUrl(null);
+                if (category != null) result.setCategory(category.trim());
                 // 管理员投稿也必须审核，不能沿用私有图片的 PASS 状态。
                 result.setUploadStatus(1); result.setReviewStatus(0); result.setReviewMessage(null);
                 result.setReviewerId(null); result.setReviewTime(null); result.setIsDelete(0);
@@ -61,6 +68,29 @@ public class PictureServicePublication {
             if (error instanceof BusinessException) throw error;
             throw failure(ErrorCode.OPERATION_ERROR, "投稿失败，请稍后重试");
         }
+    }
+
+    /** 投稿人只能撤回或删除自己的待审核公共作品；与审核共用图片行锁。 */
+    public boolean changePending(Long id, boolean delete, User actor) {
+        PictureAccessManager.requireActiveUser(actor);
+        if (id == null || id <= 0) throw failure(ErrorCode.PARAMS_ERROR, "图片ID不合法");
+        return Boolean.TRUE.equals(transactionTemplate.execute(status -> {
+            Picture picture = pictures.selectForUpdate(id);
+            if (picture == null || Objects.equals(picture.getIsDelete(), 1))
+                throw failure(ErrorCode.NOT_FOUND_ERROR, "投稿不存在");
+            if (picture.getSpaceId() != null || !Objects.equals(picture.getUserId(), actor.getId()))
+                throw failure(ErrorCode.NO_AUTH_ERROR, "只能操作自己的公共投稿");
+            if (!Objects.equals(picture.getUploadStatus(), 1) || !Objects.equals(picture.getReviewStatus(), 0))
+                throw failure(ErrorCode.OPERATION_ERROR, "仅待审核的投稿可以撤回或删除，请刷新后重试");
+            if (delete) {
+                if (pictures.deleteById(id) != 1) throw failure(ErrorCode.OPERATION_ERROR, "删除投稿失败");
+                cleanup.enqueueCommitted(PrivatePictureWriteManager.files(picture));
+            } else {
+                jdbc.update("UPDATE picture SET reviewStatus=3,reviewMessage=NULL,reviewerId=NULL,reviewTime=NULL,editTime=? WHERE id=?", new Date(), id);
+            }
+            revision.advance();
+            return true;
+        }));
     }
 
     public PrivatePictureLinkVO temporaryLink(Long id, Integer hours, User actor) {

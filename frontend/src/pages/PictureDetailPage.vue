@@ -19,7 +19,9 @@
 
       <!-- 右侧：图片信息 -->
       <aside class="detail-info" aria-label="图片信息">
-        <span class="eyebrow">{{ picture.category || '默认' }}</span>
+        <span class="eyebrow">{{ picture.category || '未分类' }}</span>
+        <a-tag v-if="picture.spaceId == null && picture.uploadStatus === 1 && picture.reviewStatus === 0" color="processing">审核中</a-tag>
+        <a-tag v-else-if="picture.spaceId == null && picture.reviewStatus === 3">已撤回</a-tag>
         <h1 class="detail-title">{{ picture.name || '未命名图片' }}</h1>
 
         <div class="detail-author">
@@ -75,16 +77,7 @@
             {{ picture.favorited ? '已收藏' : '收藏' }} · {{ picture.favoriteCount ?? 0 }}
           </a-button>
           <PictureSearchButton :picture="picture" />
-          <a-dropdown v-if="canPublish" :trigger="['click']">
-            <a-button>更多 ···</a-button>
-            <template #overlay
-              ><a-menu
-                ><a-menu-item key="submit" @click="submitOpen = true"
-                  >投稿到公共图库</a-menu-item
-                ></a-menu
-              ></template
-            >
-          </a-dropdown>
+          <a-button v-if="canPublish" @click="submitOpen = true">投稿</a-button>
         </div>
         <!-- 操作按钮（仅作者或管理员可见） -->
         <div v-if="canEdit" class="detail-actions detail-actions--owner">

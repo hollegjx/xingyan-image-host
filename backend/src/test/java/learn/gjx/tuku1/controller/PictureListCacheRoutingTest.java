@@ -32,6 +32,7 @@ class PictureListCacheRoutingTest {
         user.setId(42L);
         when(users.getLoginUser(request)).thenReturn(user);
         when(service.page(any(Page.class), any())).thenReturn(new Page<Picture>());
+        when(service.getPictureVOPage(any(Page.class), any())).thenReturn(new Page<learn.gjx.tuku1.model.vo.PictureVO>());
         controller.listPictureByPage(new PictureQueryRequest(), request);
         controller.listPictureReviewByPage(new PictureQueryRequest(), request);
         controller.listMyPictureVOByPage(new PictureQueryRequest(), request);

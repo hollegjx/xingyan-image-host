@@ -282,6 +282,46 @@ class PrivatePictureAccessIntegrationTest {
                 .andExpect(jsonPath("$.data.total").value("1")).andExpect(jsonPath("$.data.records[0].id").value("14"));
     }
 
+    @Test void reviewAllIsExplicitAndNeverIncludesPrivateImages() throws Exception {
+        jdbc.update("UPDATE picture SET reviewStatus=0,uploadStatus=1 WHERE id=14");
+        mvc.perform(post("/picture/list/page/review").session(session(1)).contentType("application/json").content("{}"))
+            .andExpect(jsonPath("$.data.total").value("1")).andExpect(jsonPath("$.data.records[0].id").value("14"));
+        mvc.perform(post("/picture/list/page/review").session(session(1)).contentType("application/json")
+            .content("{\"allReviewStatuses\":true}"))
+            .andExpect(jsonPath("$.data.total").value("2"));
+        mvc.perform(post("/picture/list/page/review").session(session(2)).contentType("application/json")
+            .content("{\"allReviewStatuses\":true}"))
+            .andExpect(jsonPath("$.code").value(40101));
+    }
+    @Test void adminReviewReturnsOnlyReviewerDisplayName() throws Exception {
+        jdbc.update("UPDATE picture SET reviewerId=1 WHERE id=10");
+        User reviewer = new User(); reviewer.setId(1L); reviewer.setUserName("审核员小林"); reviewer.setUserAccount("not-for-response");
+        when(app.getBean(UserService.class).listByIds(anyCollection())).thenReturn(Collections.singletonList(reviewer));
+        mvc.perform(post("/picture/list/page/review").session(session(1)).contentType("application/json")
+            .content("{\"reviewStatus\":1}"))
+            .andExpect(jsonPath("$.data.records[0].reviewerName").value("审核员小林"))
+            .andExpect(jsonPath("$.data.records[0].reviewer.userAccount").doesNotExist());
+    }
+    @Test void taxonomyContainsOnlyUsedPublishedPublicMetadata() throws Exception {
+        jdbc.update("UPDATE picture SET category='private-secret',tags='[\"private-tag\"]' WHERE spaceId IS NOT NULL");
+        jdbc.update("UPDATE picture SET category='风景',tags='[\"自然\",\"自然\",\" \"]' WHERE id=10");
+        jdbc.update("UPDATE picture SET category='pending-secret',tags='[\"pending-tag\"]',uploadStatus=1,reviewStatus=0 WHERE id=14");
+        mvc.perform(get("/picture/tag_category"))
+            .andExpect(jsonPath("$.data.categoryList.length()").value(1))
+            .andExpect(jsonPath("$.data.categoryList[0]").value("风景"))
+            .andExpect(jsonPath("$.data.tagList.length()").value(1))
+            .andExpect(jsonPath("$.data.tagList[0]").value("自然"));
+        jdbc.update("UPDATE picture SET isDelete=1 WHERE id=10");
+        mvc.perform(get("/picture/tag_category")).andExpect(jsonPath("$.data.categoryList.length()").value(0));
+    }
+    @Test void withdrawnSubmissionCannotBeReviewedByAdministrator() {
+        jdbc.update("UPDATE picture SET reviewStatus=3,uploadStatus=1 WHERE id=14");
+        PictureReviewRequest input = new PictureReviewRequest(); input.setId(14L); input.setReviewStatus(1);
+        User admin = new User(); admin.setId(1L); admin.setUserRole(1);
+        assertThrows(BusinessException.class, () -> service.reviewPicture(input, admin));
+        assertEquals(3, jdbc.queryForObject("SELECT reviewStatus FROM picture WHERE id=14", Integer.class));
+    }
+
     @Test
     void rawAndManagementEndpointsCannotExposePrivateRecords() throws Exception {
         mvc.perform(get("/picture/get").param("id", "11").session(session(1)))

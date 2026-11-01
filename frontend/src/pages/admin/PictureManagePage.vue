@@ -36,7 +36,7 @@
       </a-form-item>
     </a-form>
 
-    <!-- 后端只按单一审核状态查询（不传时默认待审核），因此用分段切换而非“全部” -->
+    <!-- “全部”显式传递，保留后端未传状态时默认待审核的行为。 -->
     <a-segmented
       v-model:value="searchParams.reviewStatus"
       class="status-switch"
@@ -51,7 +51,7 @@
       :data-source="dataList"
       :loading="loading"
       :pagination="pagination"
-      :scroll="{ x: 1400 }"
+      table-layout="fixed"
       row-key="id"
       @change="handleTableChange"
     >
@@ -69,6 +69,12 @@
       <template #bodyCell="{ column, record }">
         <template v-if="column.key === 'url'">
           <PictureThumbnail :picture="record" width="80px" :height="60" preview />
+        </template>
+        <template v-else-if="column.key === 'name'">
+          <strong>{{ record.name || '未命名图片' }}</strong>
+          <div class="picture-summary">{{ record.category || '未分类' }} · {{ formatSize(record.picSize) }} · {{ record.picWidth }} × {{ record.picHeight }}</div>
+          <div><a-tag v-for="tag in record.tags" :key="tag">{{ tag }}</a-tag></div>
+          <div class="picture-summary">{{ record.user?.userName || '匿名用户' }} · {{ formatTime(record.createTime) }}</div>
         </template>
         <template v-else-if="column.key === 'tags'">
           <a-tag v-for="tag in record.tags" :key="tag">{{ tag }}</a-tag>
@@ -88,7 +94,7 @@
               {{ record.reviewMessage }}
             </div>
             <div v-if="record.reviewerId || record.reviewTime" class="review-meta">
-              审核人 {{ record.reviewerId || '-' }} · {{ formatTime(record.reviewTime) }}
+              审核人 {{ record.reviewerName || '未指定' }} · {{ formatTime(record.reviewTime) }}
             </div>
           </div>
         </template>
@@ -96,7 +102,7 @@
           {{ formatTime(record.createTime) }}
         </template>
         <template v-else-if="column.key === 'action'">
-          <a-space :size="2">
+          <a-space :size="2" wrap>
             <a-button
               v-if="canReviewAs(record, REVIEW_STATUS.PASS)"
               type="link" size="small"
@@ -173,10 +179,9 @@ const formatSize = (size: number) => {
   return (size / 1024 / 1024).toFixed(1) + ' MB';
 };
 
-const reviewStatusOptions = PICTURE_REVIEW_STATUS_OPTIONS.map((option) => ({
-  ...option,
-  label: option.value === REVIEW_STATUS.REVIEWING ? option.label : `已${option.label}`,
-}));
+const reviewStatusOptions = [{ label: '全部', value: -1 }, ...PICTURE_REVIEW_STATUS_OPTIONS.map(option => ({
+  ...option, label: option.value === REVIEW_STATUS.PASS ? '已通过' : option.value === REVIEW_STATUS.REJECT ? '已拒绝' : option.label,
+}))];
 
 const getReviewStatusText = (status?: number) => {
   if (status === undefined || status === null) return '-';
@@ -184,74 +189,10 @@ const getReviewStatusText = (status?: number) => {
 };
 
 const columns = [
-  {
-    title: 'ID',
-    dataIndex: 'id',
-    key: 'id',
-    width: 100,
-  },
-  {
-    title: '图片',
-    dataIndex: 'url',
-    key: 'url',
-    width: 100,
-  },
-  {
-    title: '名称',
-    dataIndex: 'name',
-    key: 'name',
-    width: 150,
-  },
-  {
-    title: '分类',
-    dataIndex: 'category',
-    key: 'category',
-    width: 100,
-  },
-  {
-    title: '标签',
-    dataIndex: 'tags',
-    key: 'tags',
-    width: 200,
-  },
-  {
-    title: '大小',
-    dataIndex: 'picSize',
-    key: 'picSize',
-    width: 100,
-  },
-  {
-    title: '尺寸',
-    dataIndex: 'picWidth',
-    key: 'picWidth',
-    width: 120,
-    customRender: ({ record }: { record: API.PictureVO }) => {
-      return `${record.picWidth} x ${record.picHeight}`;
-    },
-  },
-  {
-    title: '上传者',
-    dataIndex: 'user',
-    key: 'user',
-    width: 100,
-  },
-  {
-    title: '审核信息',
-    key: 'reviewInfo',
-    width: 180,
-  },
-  {
-    title: '创建时间',
-    dataIndex: 'createTime',
-    key: 'createTime',
-    width: 150,
-  },
-  {
-    title: '操作',
-    key: 'action',
-    width: 240,
-    fixed: 'right',
-  },
+  { title: '图片', key: 'url', width: '16%' },
+  { title: '作品信息', key: 'name', width: '34%' },
+  { title: '审核信息', key: 'reviewInfo', width: '30%' },
+  { title: '操作', key: 'action', width: '20%' },
 ];
 
 const dataList = ref<API.PictureVO[]>([]);
@@ -280,6 +221,8 @@ const hasFilters = computed(
 );
 const emptyText = computed(() => {
   if (hasFilters.value) return '没有符合条件的图片';
+  if (searchParams.reviewStatus === -1) return '还没有投稿';
+  if (searchParams.reviewStatus === REVIEW_STATUS.WITHDRAWN) return '没有已撤回的投稿';
   if (searchParams.reviewStatus === REVIEW_STATUS.REVIEWING) return '没有待审核的投稿';
   if (searchParams.reviewStatus === REVIEW_STATUS.REJECT) return '没有已拒绝的图片';
   return '还没有已通过的图片';
@@ -298,7 +241,7 @@ const pagination = computed(() => ({
 const fetchPictureList = async () => {
   loading.value = true;
   try {
-    const res = await listPictureReviewByPageUsingPost(searchParams);
+    const res = await listPictureReviewByPageUsingPost({ ...searchParams, allReviewStatuses: searchParams.reviewStatus === -1, reviewStatus: searchParams.reviewStatus === -1 ? undefined : searchParams.reviewStatus });
     if (res.code === 0 && res.data) {
       dataList.value = res.data.records || [];
       total.value = Number(res.data.total || 0);
@@ -383,7 +326,7 @@ const submitReview = async (reviewMessage: string) => {
 };
 
 const canReviewAs = (record: API.PictureVO, reviewStatus: number) => {
-  return record.reviewStatus !== reviewStatus;
+  return record.reviewStatus !== REVIEW_STATUS.WITHDRAWN && record.reviewStatus !== reviewStatus;
 };
 
 const openBatchUploadModal = () => {
@@ -440,6 +383,17 @@ const fetchTagOptions = async () => {
 </script>
 
 <style scoped>
+:deep(.ant-table-cell) { overflow-wrap: anywhere; white-space: normal; }
+:deep(.ant-table-cell .ant-image), :deep(.ant-table-cell img) { max-width: 100%; }
+:deep(.ant-tag) { white-space: normal; margin-top: 4px; }
+.picture-summary { color: var(--muted); font-size: 12px; margin: 6px 0; }
+@media (max-width: 600px) {
+  :deep(.ant-table-cell) { padding: 8px 4px !important; }
+  :deep(.ant-table-cell .ant-space) { gap: 0 !important; }
+  .status-switch { max-width: 100%; }
+  :deep(.ant-segmented-group) { flex-wrap: wrap; }
+}
+
 .search-form {
   gap: 12px 0;
   margin-bottom: 20px;

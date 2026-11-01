@@ -37,9 +37,16 @@ class PicturePublicationControllerTest {
         mvc.perform(post("/picture/submit/public").contentType("application/json").content("{\"pictureId\":10}"))
             .andExpect(jsonPath("$.code").value(0)).andExpect(jsonPath("$.data").value(101));
     }
+    @Test void lifecycleUsesSessionActorAndIgnoresForgedIdentity() throws Exception {
+        when(publication.changePendingSubmission(10L, false, actor)).thenReturn(true);
+        mvc.perform(post("/picture/submission/withdraw").contentType("application/json")
+            .content("{\"pictureId\":10,\"userId\":999}"))
+            .andExpect(jsonPath("$.data").value(true)).andExpect(header().string("Cache-Control", "private, no-store"));
+        verify(publication).changePendingSubmission(10L, false, actor);
+    }
     @Test void anonymousCannotReachEitherService() throws Exception {
         when(users.getLoginUser(any())).thenThrow(new BusinessException(ErrorCode.NOT_LOGIN_ERROR));
-        for(String path:new String[]{"/picture/submit/public","/picture/private/link"})
+        for(String path:new String[]{"/picture/submit/public","/picture/private/link","/picture/submission/withdraw","/picture/submission/delete"})
             mvc.perform(post(path).contentType("application/json").content("{\"pictureId\":10,\"validHours\":1}"))
                 .andExpect(jsonPath("$.code").value(40100));
         verifyNoInteractions(publication);

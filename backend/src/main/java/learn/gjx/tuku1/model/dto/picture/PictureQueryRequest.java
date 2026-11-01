@@ -95,6 +95,9 @@ public class PictureQueryRequest implements Serializable {
      */
     private Integer reviewStatus;
 
+    /** 仅管理员审核列表使用；不传时仍默认待审核。 */
+    private Boolean allReviewStatuses;
+
     /**
      * 当前页号
      */

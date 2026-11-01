@@ -24,6 +24,7 @@ public final class PublicPictureQuery {
         PictureQueryRequest query = normalizeFilters(source);
         require(query.getPageSize() <= 20, "每页数量必须在 1 到 20 之间");
         // Never trust client-supplied visibility, even for logged-in administrators.
+        query.setAllReviewStatuses(null);
         query.setReviewStatus(PictureReviewStatusEnum.PASS.getValue());
         query.setUploadStatus(PictureUploadStatusEnum.COMPLETED.getValue());
         return query;

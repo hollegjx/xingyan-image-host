@@ -61,7 +61,7 @@ class PublicPicturePageCacheTest {
         // Reflect over the DTO so newly added filter fields cannot silently be omitted.
         for (java.lang.reflect.Field field : PictureQueryRequest.class.getDeclaredFields()) {
             if (java.lang.reflect.Modifier.isStatic(field.getModifiers())
-                    || Arrays.asList("reviewStatus", "uploadStatus").contains(field.getName())) {
+                    || Arrays.asList("reviewStatus", "uploadStatus", "allReviewStatuses").contains(field.getName())) {
                 continue;
             }
             PictureQueryRequest changed = PublicPictureQuery.normalize(null);
@@ -90,11 +90,15 @@ class PublicPicturePageCacheTest {
     void normalizationForcesPublicScopeWithoutMutatingCaller() {
         PictureQueryRequest source = new PictureQueryRequest();
         source.setReviewStatus(2);
+        source.setAllReviewStatuses(true);
         source.setUploadStatus(0);
         source.setCurrent(null);
         source.setPageSize(null);
         PictureQueryRequest result = PublicPictureQuery.normalize(source);
         assertEquals(1, result.getReviewStatus());
+        assertNull(result.getAllReviewStatuses());
+        assertTrue(source.getAllReviewStatuses());
+        assertEquals(cache.key(query, 1), cache.key(result, 1));
         assertEquals(1, result.getUploadStatus());
         assertEquals(1, result.getCurrent());
         assertEquals(10, result.getPageSize());

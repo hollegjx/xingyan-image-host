@@ -7,7 +7,8 @@ public enum PictureReviewStatusEnum {
 
     REVIEWING("待审核", 0),
     PASS("通过", 1),
-    REJECT("拒绝", 2);
+    REJECT("拒绝", 2),
+    WITHDRAWN("已撤回", 3);
 
     private final String name;
 

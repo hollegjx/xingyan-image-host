@@ -54,7 +54,28 @@ public class PictureController {
     public BaseResponse<Long> submitPublic(@RequestBody PicturePublishRequest input,
                                           HttpServletRequest request, HttpServletResponse response) {
         publicationHeaders(response);
-        return BaseResponse.success(pictureService.submitPublicPicture(input.getPictureId(), userService.getLoginUser(request)));
+        User actor = userService.getLoginUser(request);
+        return BaseResponse.success(input.getCategory() == null
+                ? pictureService.submitPublicPicture(input.getPictureId(), actor)
+                : pictureService.submitPublicPicture(input.getPictureId(), input.getCategory(), actor));
+    }
+
+    /** 撤回自己的待审核投稿，保留副本以便修改后重新提交。 */
+    @PostMapping("/submission/withdraw")
+    @AuthCheck
+    public BaseResponse<Boolean> withdrawSubmission(@RequestBody PicturePublishRequest input,
+            HttpServletRequest request, HttpServletResponse response) {
+        publicationHeaders(response);
+        return BaseResponse.success(pictureService.changePendingSubmission(input.getPictureId(), false, userService.getLoginUser(request)));
+    }
+
+    /** 删除自己的待审核投稿，原空间图片保持不变。 */
+    @PostMapping("/submission/delete")
+    @AuthCheck
+    public BaseResponse<Boolean> deleteSubmission(@RequestBody PicturePublishRequest input,
+            HttpServletRequest request, HttpServletResponse response) {
+        publicationHeaders(response);
+        return BaseResponse.success(pictureService.changePendingSubmission(input.getPictureId(), true, userService.getLoginUser(request)));
     }
 
     /** 仅在本次响应返回展示图临时凭据，不缓存、不重定向。 */
@@ -89,19 +110,7 @@ public class PictureController {
      */
     @GetMapping("/tag_category")
     public BaseResponse<PictureTagCategory> listPictureTagCategory() {
-        PictureTagCategory pictureTagCategory = new PictureTagCategory();
-        // 标签列表
-        List<String> tagList = Arrays.asList(
-                "热门", "搞笑", "生活", "高清", "艺术",
-                "校园", "背景", "简历", "创意"
-        );
-        // 分类列表
-        List<String> categoryList = Arrays.asList(
-                "模板", "电商", "表情包", "素材", "海报"
-        );
-        pictureTagCategory.setTagList(tagList);
-        pictureTagCategory.setCategoryList(categoryList);
-        return BaseResponse.success(pictureTagCategory);
+        return BaseResponse.success(pictureService.publicTagCategory());
     }
 
     /**
@@ -242,7 +251,9 @@ public class PictureController {
         }
         requirePublicQuery(queryRequest);
         queryRequest = learn.gjx.tuku1.manager.cache.PublicPictureQuery.normalizeFilters(queryRequest);
-        if (queryRequest.getReviewStatus() == null) {
+        if (Boolean.TRUE.equals(queryRequest.getAllReviewStatuses())) {
+            queryRequest.setReviewStatus(null);
+        } else if (queryRequest.getReviewStatus() == null) {
             queryRequest.setReviewStatus(PictureReviewStatusEnum.REVIEWING.getValue());
         }
         queryRequest.setUploadStatus(PictureUploadStatusEnum.COMPLETED.getValue());
@@ -250,7 +261,16 @@ public class PictureController {
         int pageSize = queryRequest.getPageSize();
         Page<Picture> picturePage = pictureService.page(new Page<>(current, pageSize),
                 pictureService.getQueryWrapper(queryRequest));
-        return BaseResponse.success(pictureService.getPictureVOPage(picturePage, request));
+        Page<PictureVO> result = pictureService.getPictureVOPage(picturePage, request);
+        java.util.Set<Long> reviewerIds = result.getRecords().stream().map(PictureVO::getReviewerId)
+                .filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toSet());
+        if (!reviewerIds.isEmpty()) {
+            java.util.Map<Long, String> names = new java.util.HashMap<>();
+            for (User reviewer : userService.listByIds(reviewerIds))
+                names.put(reviewer.getId(), reviewer.getUserName());
+            result.getRecords().forEach(vo -> vo.setReviewerName(names.get(vo.getReviewerId())));
+        }
+        return BaseResponse.success(result);
     }
 
     /**

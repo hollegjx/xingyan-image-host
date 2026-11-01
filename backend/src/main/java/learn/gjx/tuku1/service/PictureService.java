@@ -30,6 +30,9 @@ public interface PictureService extends IService<Picture> {
 
     /** 空间主人或团队管理员将私有图片复制为待审核公共投稿。 */
     long submitPublicPicture(Long pictureId, User user);
+    long submitPublicPicture(Long pictureId, String category, User user);
+    boolean changePendingSubmission(Long pictureId, boolean delete, User user);
+    learn.gjx.tuku1.model.vo.PictureTagCategory publicTagCategory();
 
     /** 仅签独立展示图，临时凭据不落库。 */
     PrivatePictureLinkVO temporaryPrivateLink(Long pictureId, Integer hours, User user);

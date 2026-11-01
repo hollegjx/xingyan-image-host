@@ -101,6 +101,35 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
     private PictureServicePublication pictureServicePublication;
 
     @Override
+    public boolean changePendingSubmission(Long id, boolean delete, User user) {
+        return pictureServicePublication.changePending(id, delete, user);
+    }
+
+    @Override
+    public long submitPublicPicture(Long id, String category, User user) {
+        return pictureServicePublication.submit(id, category, user);
+    }
+
+    @Override
+    public learn.gjx.tuku1.model.vo.PictureTagCategory publicTagCategory() {
+        java.util.SortedSet<String> categories = new java.util.TreeSet<>();
+        java.util.SortedSet<String> tags = new java.util.TreeSet<>();
+        for (Picture picture : this.lambdaQuery().select(Picture::getCategory, Picture::getTags)
+                .isNull(Picture::getSpaceId).eq(Picture::getUploadStatus, 1).eq(Picture::getReviewStatus, 1).list()) {
+            if (StrUtil.isNotBlank(picture.getCategory())) categories.add(picture.getCategory().trim());
+            if (StrUtil.isNotBlank(picture.getTags())) {
+                try {
+                    for (String tag : JSONUtil.toList(picture.getTags(), String.class))
+                        if (StrUtil.isNotBlank(tag)) tags.add(tag.trim());
+                } catch (RuntimeException error) { log.warn("公开图片标签格式无效，跳过该条标签"); }
+            }
+        }
+        learn.gjx.tuku1.model.vo.PictureTagCategory result = new learn.gjx.tuku1.model.vo.PictureTagCategory();
+        result.setCategoryList(new ArrayList<>(categories)); result.setTagList(new ArrayList<>(tags));
+        return result;
+    }
+
+    @Override
     public long submitPublicPicture(Long pictureId, User user) {
         return pictureServicePublication.submit(pictureId, user);
     }
@@ -850,7 +879,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         if (!PictureReviewStatusEnum.isReviewResult(reviewStatus)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "审核状态只能为通过或拒绝");
         }
-        Picture oldPicture = this.getById(pictureId);
+        Picture oldPicture = baseMapper.selectForUpdate(pictureId);
         if (oldPicture == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "图片不存在");
         }
@@ -858,6 +887,10 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "草稿图片不能审核");
         }
         pictureAccessManager.requirePublic(oldPicture);
+        if (Objects.equals(oldPicture.getReviewStatus(), 3)) {
+            log.warn("已撤回的投稿不能审核");
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "投稿已撤回，请刷新列表");
+        }
         if (Objects.equals(oldPicture.getReviewStatus(), reviewStatus)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "请勿重复审核");
         }
@@ -900,6 +933,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
 
         Long pictureId = pictureEditRequest.getId();
         Picture oldPicture = this.getById(pictureId);
+        if (oldPicture != null && oldPicture.getSpaceId() == null) oldPicture = baseMapper.selectForUpdate(pictureId);
         if (oldPicture == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "图片不存在");
         }
@@ -950,7 +984,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         validPicture(picture);
 
         Long pictureId = pictureUpdateRequest.getId();
-        Picture oldPicture = this.getById(pictureId);
+        Picture oldPicture = baseMapper.selectForUpdate(pictureId);
         if (oldPicture == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "图片不存在");
         }
